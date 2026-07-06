@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* ---- Design tokens (was tailwind.config in the prototype) --------------- */
+/* rounded-xl already resolves to 12px in Tailwind's default scale, so only
+   the brand colours and font stack need registering here. */
+@theme {
+  --color-navy:  #0B2545;
+  --color-ocean: #1E5F8E;
+  --color-gold:  #C8932F;
+  --color-paper: #FAFAFA;
+  --color-ink:   #1F2937;
+  --color-muted: #6B7280;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+html, body { background: #EDEFF2; }
+* { -webkit-font-smoothing: antialiased; }
+
+/* hide scrollbars but keep scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes fadeUp { from { transform: translateY(10px); } to { transform: translateY(0); } }
+.fade-up { animation: fadeUp .32s ease both; }
+@keyframes fadeIn { from { transform: translateY(4px); } to { transform: translateY(0); } }
+.fade-in { animation: fadeIn .25s ease both; }
+@keyframes popDot { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.pop-dot { animation: popDot .35s ease both; }
