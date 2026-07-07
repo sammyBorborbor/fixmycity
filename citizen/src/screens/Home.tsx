@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useStore, CITIZEN } from '../lib/store.tsx';
+import { useStore } from '../lib/store.tsx';
 import type { Report } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import ReportCard from '../components/ReportCard.tsx';
@@ -11,7 +11,7 @@ function bySubmittedDesc(a: Report, b: Report) {
 }
 
 export default function Home() {
-  const { reports } = useStore();
+  const { reports, user } = useStore();
   const navigate = useNavigate();
   const unread = NO_UNREAD;
 
@@ -23,7 +23,7 @@ export default function Home() {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-muted text-sm">Good afternoon,</p>
-          <h1 className="text-2xl font-bold text-navy leading-tight">Hello, {CITIZEN.firstName} 👋</h1>
+          <h1 className="text-2xl font-bold text-navy leading-tight">Hello, {user?.firstName} 👋</h1>
         </div>
         <button onClick={() => navigate('/notifications')} className="relative w-10 h-10 rounded-full bg-white ring-1 ring-black/5 shadow-sm flex items-center justify-center text-navy">
           <Icon name="Bell" size={18} />

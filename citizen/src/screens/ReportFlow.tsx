@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, CATEGORIES, COORDS, CITIZEN } from '../lib/store.tsx';
+import { useStore, CATEGORIES, COORDS } from '../lib/store.tsx';
 import type { CategoryName, LocationName } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
@@ -8,26 +9,57 @@ import StatusPill from '../components/StatusPill.tsx';
 import CategoryBadge from '../components/CategoryBadge.tsx';
 import ProgressBar from '../components/ProgressBar.tsx';
 import MapPlaceholder from '../components/MapPlaceholder.tsx';
-import { PhotoPlaceholder } from '../components/PhotoBox.tsx';
 
 export default function ReportFlow() {
-  const { submitReport } = useStore();
+  const { submitReport, user } = useStore();
   const navigate = useNavigate();
+  const fileInput = useRef<HTMLInputElement | null>(null);
 
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState<CategoryName | null>(null);
-  const [photo, setPhoto] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [desc, setDesc] = useState('');
   const [location, setLocation] = useState<LocationName>('Okponglo');
   const [newId, setNewId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function submit() {
-    if (!category) return; // step 2 is only reachable with a category picked
-    const report = submitReport({ category, location, hasPhoto: photo, description: desc });
+  // object URLs leak unless revoked when replaced/unmounted
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
+  function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (preview) URL.revokeObjectURL(preview);
+    setPhoto(file);
+    setPreview(URL.createObjectURL(file));
+    e.target.value = '';
+  }
+
+  function clearPhoto() {
+    if (preview) URL.revokeObjectURL(preview);
+    setPhoto(null);
+    setPreview(null);
+  }
+
+  async function submit() {
+    if (!category || !photo || busy) return;
+    setBusy(true);
+    setError(null);
+    const { report, error: submitError } = await submitReport({ category, location, description: desc, photo });
+    setBusy(false);
+    if (submitError || !report) {
+      setError(submitError ?? 'Could not submit the report. Please try again.');
+      return;
+    }
     setNewId(report.id);
     setStep(3);
   }
-  function reset() { setStep(1); setCategory(null); setPhoto(false); setDesc(''); setNewId(null); }
+
+  function reset() {
+    setStep(1); setCategory(null); clearPhoto(); setDesc(''); setNewId(null); setError(null);
+  }
 
   return (
     <div className="px-4 pt-5 pb-4 fade-in">
@@ -73,15 +105,16 @@ export default function ReportFlow() {
           {/* camera */}
           <div>
             <label className="text-xs font-semibold text-muted uppercase tracking-wide">Photo</label>
-            {!photo ? (
+            <input ref={fileInput} type="file" accept="image/*" capture="environment" hidden onChange={pickPhoto} />
+            {!preview ? (
               <div className="mt-1.5 rounded-xl ring-1 ring-dashed ring-gray-300 bg-gray-50 h-44 flex flex-col items-center justify-center gap-3">
                 <Icon name="Camera" size={30} className="text-gray-400" />
-                <Btn variant="primary" onClick={() => setPhoto(true)} icon="Camera">Take Photo</Btn>
+                <Btn variant="primary" onClick={() => fileInput.current?.click()} icon="Camera">Take Photo</Btn>
               </div>
             ) : (
               <div className="mt-1.5 relative">
-                <PhotoPlaceholder label="captured photo" className="rounded-xl h-44 w-full" />
-                <button onClick={() => setPhoto(false)} className="absolute top-2 right-2 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center shadow text-navy">
+                <img src={preview} alt="report" className="rounded-xl h-44 w-full object-cover" />
+                <button onClick={clearPhoto} className="absolute top-2 right-2 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center shadow text-navy">
                   <Icon name="RotateCcw" size={15} />
                 </button>
                 <span className="absolute bottom-2 left-2 bg-green-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -95,7 +128,7 @@ export default function ReportFlow() {
           <div>
             <label className="text-xs font-semibold text-muted uppercase tracking-wide">Location</label>
             <div className="mt-1.5 relative rounded-xl overflow-hidden ring-1 ring-black/5">
-              <MapPlaceholder reports={[{ id: 'new', category, location, status: 'Submitted', description: '', crew: null, hasPhoto: photo, timeline: [] }]} height={130} rounded="" activeId="new" />
+              <MapPlaceholder reports={[{ id: 'new', category, location, status: 'Submitted', description: '', crew: null, hasPhoto: !!photo, timeline: [] }]} height={130} rounded="" activeId="new" />
               <div className="absolute inset-x-0 bottom-0 bg-white/95 backdrop-blur px-3 py-2 flex items-center gap-2">
                 <Icon name="MapPin" size={15} className="text-ocean" />
                 <select value={location} onChange={e => setLocation(e.target.value as LocationName)}
@@ -115,7 +148,10 @@ export default function ReportFlow() {
               className="mt-1.5 w-full rounded-xl ring-1 ring-gray-300 focus:ring-2 focus:ring-ocean p-3 text-sm text-ink resize-none focus:outline-none" />
           </div>
 
-          <Btn size="lg" onClick={submit} icon="Send" className="w-full" disabled={!photo}>Submit report</Btn>
+          {error && <p className="text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2">{error}</p>}
+          <Btn size="lg" onClick={submit} icon="Send" className="w-full" disabled={!photo || busy}>
+            {busy ? 'Submitting…' : 'Submit report'}
+          </Btn>
           {!photo && <p className="text-center text-[11px] text-muted -mt-2">Add a photo to submit</p>}
         </div>
       )}
@@ -129,7 +165,7 @@ export default function ReportFlow() {
             </span>
           </span>
           <h1 className="text-2xl font-bold text-navy">Report submitted!</h1>
-          <p className="text-muted text-sm mt-1 max-w-[18rem]">Thanks {CITIZEN.firstName}. AWMA has received your report and will review it shortly.</p>
+          <p className="text-muted text-sm mt-1 max-w-[18rem]">Thanks {user?.firstName}. AWMA has received your report and will review it shortly.</p>
 
           <div className="mt-5 w-full bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-4">
             <p className="text-xs text-muted">Reference number</p>

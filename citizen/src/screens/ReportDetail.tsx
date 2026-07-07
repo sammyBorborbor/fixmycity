@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useStore, crewName, crewById } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
@@ -11,15 +12,26 @@ export default function ReportDetail() {
   const { id } = useParams();
   const { reports, reopenReport } = useStore();
   const navigate = useNavigate();
+  const [reopening, setReopening] = useState(false);
+  const [reopenError, setReopenError] = useState<string | null>(null);
   const report = reports.find(r => r.id === id);
 
   if (!report) return <Navigate to="/reports" replace />;
+
+  async function reopen() {
+    if (!report || reopening) return;
+    setReopening(true);
+    setReopenError(null);
+    const { error } = await reopenReport(report.id);
+    setReopening(false);
+    if (error) setReopenError(error);
+  }
 
   return (
     <div className="fade-in pb-6">
       {/* photo header */}
       <div className="relative">
-        <ReportPhoto report={report} shape="rect" placeholder={`Drop a ${report.category.toLowerCase()} photo`} className="w-full" style={{ height: 220 }} />
+        <ReportPhoto report={report} className="w-full" style={{ height: 220 }} />
         <button onClick={() => navigate(-1)} className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/95 shadow flex items-center justify-center text-navy">
           <Icon name="ChevronLeft" size={20} />
         </button>
@@ -52,7 +64,10 @@ export default function ReportDetail() {
 
         {report.status === 'Resolved' && (
           <div className="mt-4">
-            <Btn variant="danger" icon="RotateCcw" className="w-full" onClick={() => reopenReport(report.id)}>Reopen — issue not fixed</Btn>
+            <Btn variant="danger" icon="RotateCcw" className="w-full" onClick={reopen} disabled={reopening}>
+              {reopening ? 'Reopening…' : 'Reopen — issue not fixed'}
+            </Btn>
+            {reopenError && <p className="text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mt-2">{reopenError}</p>}
             <p className="text-center text-[11px] text-muted mt-2">This sends your report back to AWMA flagged as Reopened.</p>
           </div>
         )}

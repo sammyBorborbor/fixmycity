@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore, CITIZEN } from '../lib/store.tsx';
+import { useStore } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
 
@@ -12,18 +12,20 @@ function Toggle({ on, set }: { on: boolean; set: (v: boolean) => void }) {
 }
 
 export default function Profile() {
-  const { signOut } = useStore();
+  const { signOut, user } = useStore();
   const [notif, setNotif] = useState(true);
   const [push, setPush] = useState(true);
+  const initials = (user?.name ?? '')
+    .trim().split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase() || '?';
 
   return (
     <div className="px-4 pt-5 pb-4 fade-in">
       <h1 className="text-xl font-bold text-navy mb-4">Profile</h1>
       <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-4 flex items-center gap-3">
-        <span className="w-14 h-14 rounded-full bg-navy text-white flex items-center justify-center text-xl font-bold">AA</span>
+        <span className="w-14 h-14 rounded-full bg-navy text-white flex items-center justify-center text-xl font-bold">{initials}</span>
         <div>
-          <p className="font-bold text-navy text-lg leading-tight">{CITIZEN.name}</p>
-          <p className="text-sm text-muted">{CITIZEN.email}</p>
+          <p className="font-bold text-navy text-lg leading-tight">{user?.name}</p>
+          <p className="text-sm text-muted">{user?.email}</p>
           <span className="inline-flex items-center gap-1 mt-1 text-[11px] font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full"><Icon name="BadgeCheck" size={12} /> Verified resident</span>
         </div>
       </div>

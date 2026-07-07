@@ -14,9 +14,11 @@ import Map from './screens/Map.tsx';
 import Profile from './screens/Profile.tsx';
 import Notifications from './screens/Notifications.tsx';
 
-/* Auth guard — everything below /login requires a signed-in user. */
+/* Auth guard — everything below /login requires a signed-in user. Waits for
+   the session restore so a page reload doesn't bounce through /login. */
 function RequireAuth({ children }: { children: ReactElement }) {
-  const { user } = useStore();
+  const { user, authReady } = useStore();
+  if (!authReady) return <div className="flex-1 bg-paper" />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

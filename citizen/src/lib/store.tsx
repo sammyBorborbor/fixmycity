@@ -1,15 +1,20 @@
 /* =========================================================================
-   FixMyCity — data store, status model & transition helpers
-   ALL app state + seed data live here, exposed through one React context.
-   Screens/components read state and call the exposed functions; they never
-   mutate `reports`/`user` directly.
+   FixMyCity — data store backed by Supabase.
+   ALL app state lives here, exposed through one React context. Screens read
+   state and call the exposed functions; they never talk to supabase-js for
+   reports directly. Status values are written ONLY by the transition-report /
+   submit-report edge functions — this client is read-only on reports.
    ========================================================================= */
 /* eslint-disable react-refresh/only-export-components --
    deliberately a context module: constants + hooks + one provider component */
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import { FunctionsHttpError } from '@supabase/supabase-js';
+import { supabase } from './supabase.ts';
+import { compressImage } from './image.ts';
+import type { Tables } from './database.types.ts';
 
-/* ---- Domain types ------------------------------------------------------ */
+/* ---- Domain types (UI-facing; display names, not DB enum values) -------- */
 export type StatusName =
   | 'Submitted' | 'Acknowledged' | 'Assigned' | 'In Progress'
   | 'Resolved' | 'Rejected' | 'Reopened';
@@ -38,13 +43,15 @@ export type TimelineStep =
   | { status: StatusName; pending: true };
 
 export interface Report {
-  id: string;
+  id: string;                 // public reference, e.g. FMC-2026-0432 (used in routes)
+  uuid?: string;              // database row id (used for API calls)
   category: CategoryName;
   location: LocationName;
   description: string;
   status: StatusName;
-  crew: string | null;
+  crew: string | null;        // assigned crew id
   hasPhoto: boolean;
+  photoPath?: string | null;  // storage path in the report-photos bucket
   rejectReason?: string;
   timeline: TimelineEvent[];
 }
@@ -56,27 +63,28 @@ export interface Crew {
   lead: string;
   phone: string;
   available: boolean;
-  roster?: string[];
   members?: number;
 }
 
 export interface ReportDraft {
   category: CategoryName;
   location: LocationName;
-  hasPhoto: boolean;
   description: string;
+  photo: File;
 }
 
 export interface CitizenUser { name: string; firstName: string; email: string }
 
 export interface StoreValue {
+  authReady: boolean;
   user: CitizenUser | null;
   reports: Report[];
   crews: Crew[];
-  signIn: () => void;
-  signOut: () => void;
-  submitReport: (draft: ReportDraft) => Report;
-  reopenReport: (id: string) => void;
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (name: string, email: string, password: string) => Promise<{ error?: string; pendingConfirmation?: boolean }>;
+  signOut: () => Promise<void>;
+  submitReport: (draft: ReportDraft) => Promise<{ report?: Report; error?: string }>;
+  reopenReport: (id: string) => Promise<{ error?: string }>;
 }
 
 /* ---- Status model ------------------------------------------------------ */
@@ -99,14 +107,28 @@ export const CATEGORIES: Record<CategoryName, CategoryInfo> = {
   'Broken Streetlight': { icon: 'Lightbulb', blurb: 'Faulty or dark street lighting',     accent: '#C8932F' },
 };
 
-/* ---- Crews ------------------------------------------------------------- */
-export const CREWS: Crew[] = [
-  { id: 'alpha', name: 'Crew Alpha', dept: 'Sanitation',  lead: 'Yaw Boateng',   phone: '024 118 0042', available: true,  roster: ['Yaw Boateng', 'Adwoa Mensah', 'Kwabena Osei', 'Abena Owusu'] },
-  { id: 'beta',  name: 'Crew Beta',  dept: 'Drainage',    lead: 'Esi Addo',      phone: '020 776 5510', available: true,  roster: ['Esi Addo', 'Kofi Darko', 'Yaa Asantewaa', 'Kwame Nkansah', 'Akosua Frimpong'] },
-  { id: 'gamma', name: 'Crew Gamma', dept: 'Electrical',  lead: 'Kojo Annan',    phone: '055 309 8821', available: false, roster: ['Kojo Annan', 'Ama Boadu', 'Fiifi Tetteh'] },
-];
+/* ---- DB <-> UI mapping -------------------------------------------------- */
+type ReportRow = Tables<'reports'>;
+type TransitionRow = Tables<'status_transitions'>;
+type CrewRow = Tables<'crews'>;
+type ProfileRow = Tables<'profiles'>;
 
-/* ---- Map coordinates (percent within map frame) ------------------------ */
+const DB_TO_STATUS: Record<ReportRow['status'], StatusName> = {
+  submitted: 'Submitted', acknowledged: 'Acknowledged', assigned: 'Assigned',
+  in_progress: 'In Progress', resolved: 'Resolved', rejected: 'Rejected', reopened: 'Reopened',
+};
+const DB_TO_CATEGORY: Record<ReportRow['category'], CategoryName> = {
+  dumping: 'Illegal Dumping', drain: 'Blocked Drain', streetlight: 'Broken Streetlight',
+};
+const CATEGORY_TO_DB: Record<CategoryName, ReportRow['category']> = {
+  'Illegal Dumping': 'dumping', 'Blocked Drain': 'drain', 'Broken Streetlight': 'streetlight',
+};
+const DEPT_LABEL: Record<CrewRow['department'], string> = {
+  sanitation: 'Sanitation', drainage: 'Drainage', electrical: 'Electrical',
+};
+
+/* ---- Map coordinates ---------------------------------------------------- */
+// percent within the stylised map frame (placeholder map)
 export const COORDS: Record<LocationName, { x: number; y: number }> = {
   'East Legon':                    { x: 63, y: 71 },
   'Okponglo':                      { x: 50, y: 52 },
@@ -118,13 +140,19 @@ export const COORDS: Record<LocationName, { x: number; y: number }> = {
   'Legon (near University of Ghana)': { x: 41, y: 67 },
 };
 
-export const CITIZEN: CitizenUser = { name: 'Ama Asante', firstName: 'Ama', email: 'ama.asante@gmail.com' };
+// real-world coordinates submitted with a report (PostGIS geography)
+export const GEO: Record<LocationName, { lat: number; lng: number }> = {
+  'East Legon':                    { lat: 5.6360, lng: -0.1610 },
+  'Okponglo':                      { lat: 5.6350, lng: -0.1850 },
+  'Dzorwulu':                      { lat: 5.6060, lng: -0.1900 },
+  'Abelemkpe':                     { lat: 5.6010, lng: -0.2030 },
+  'Airport Residential Area':      { lat: 5.6000, lng: -0.1780 },
+  'Roman Ridge':                   { lat: 5.5930, lng: -0.1920 },
+  'Shiashie':                      { lat: 5.6260, lng: -0.1740 },
+  'Legon (near University of Ghana)': { lat: 5.6500, lng: -0.1870 },
+};
 
 /* ---- Date helpers ------------------------------------------------------ */
-// "now" for the demo is fixed for deterministic seed timestamps
-export const NOW = new Date('2026-06-09T14:30:00');
-function daysAgo(d: number, h = 0): string { const t = new Date(NOW); t.setDate(t.getDate() - d); t.setHours(t.getHours() - h); return t.toISOString(); }
-
 export function fmtDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ', ' +
@@ -132,101 +160,14 @@ export function fmtDate(iso: string): string {
 }
 
 export function relTime(iso: string): string {
-  const diff = (NOW.getTime() - new Date(iso).getTime()) / 1000;
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
   if (diff < 3600) return Math.max(1, Math.round(diff / 60)) + 'm ago';
   if (diff < 86400) return Math.round(diff / 3600) + 'h ago';
   const days = Math.round(diff / 86400);
   return days + (days === 1 ? ' day ago' : ' days ago');
 }
 
-export function nowISO(): string { return new Date().toISOString(); }
-
-/* ---- Seed reports ------------------------------------------------------ */
-const ev = (status: StatusName, iso: string, actor: string): TimelineEvent => ({ status, timestamp: iso, actor });
-
-const SEED_REPORTS: Report[] = [
-  {
-    id: 'FMC-2026-0419', category: 'Illegal Dumping', location: 'East Legon',
-    description: 'Pile of household waste dumped at the corner of Oxford Street, blocking the pedestrian walkway. Bad smell, growing each day.',
-    status: 'Submitted', crew: null, hasPhoto: true,
-    timeline: [ev('Submitted', daysAgo(0, 3), CITIZEN.name)],
-  },
-  {
-    id: 'FMC-2026-0411', category: 'Blocked Drain', location: 'Okponglo',
-    description: 'Storm drain near the overhead completely blocked with silt and plastic. Floods the road whenever it rains.',
-    status: 'Acknowledged', crew: null, hasPhoto: true,
-    timeline: [
-      ev('Submitted', daysAgo(1, 5), CITIZEN.name),
-      ev('Acknowledged', daysAgo(1, 1), 'Akua O. · AWMA'),
-    ],
-  },
-  {
-    id: 'FMC-2026-0402', category: 'Broken Streetlight', location: 'Dzorwulu',
-    description: 'Three consecutive streetlights out on Kojo Thompson Road. Very dark and unsafe at night.',
-    status: 'Assigned', crew: 'gamma', hasPhoto: true,
-    timeline: [
-      ev('Submitted', daysAgo(3, 2), CITIZEN.name),
-      ev('Acknowledged', daysAgo(2, 6), 'Akua O. · AWMA'),
-      ev('Assigned', daysAgo(2, 1), 'Akua O. · AWMA'),
-    ],
-  },
-  {
-    id: 'FMC-2026-0398', category: 'Illegal Dumping', location: 'Abelemkpe',
-    description: 'Traders dumping refuse behind the market stalls. Attracting flies and rodents near food vendors.',
-    status: 'Assigned', crew: 'alpha', hasPhoto: true,
-    timeline: [
-      ev('Submitted', daysAgo(4, 1), CITIZEN.name),
-      ev('Acknowledged', daysAgo(3, 8), 'Akua O. · AWMA'),
-      ev('Assigned', daysAgo(3, 2), 'Akua O. · AWMA'),
-    ],
-  },
-  {
-    id: 'FMC-2026-0381', category: 'Blocked Drain', location: 'Airport Residential Area',
-    description: 'Culvert under the access road is choked. Standing water is becoming a mosquito breeding ground.',
-    status: 'In Progress', crew: 'beta', hasPhoto: true,
-    timeline: [
-      ev('Submitted', daysAgo(6, 4), CITIZEN.name),
-      ev('Acknowledged', daysAgo(6, 1), 'Kofi M. · AWMA'),
-      ev('Assigned', daysAgo(5, 5), 'Kofi M. · AWMA'),
-      ev('In Progress', daysAgo(1, 2), 'Crew Beta'),
-    ],
-  },
-  {
-    id: 'FMC-2026-0355', category: 'Broken Streetlight', location: 'Roman Ridge',
-    description: 'Streetlight pole leaning and light not working at the Kaneshie First Light junction.',
-    status: 'Resolved', crew: 'gamma', hasPhoto: true,
-    timeline: [
-      ev('Submitted', daysAgo(11, 3), CITIZEN.name),
-      ev('Acknowledged', daysAgo(11, 0), 'Akua O. · AWMA'),
-      ev('Assigned', daysAgo(10, 4), 'Akua O. · AWMA'),
-      ev('In Progress', daysAgo(8, 2), 'Crew Gamma'),
-      ev('Resolved', daysAgo(6, 6), 'Crew Gamma'),
-    ],
-  },
-  {
-    id: 'FMC-2026-0340', category: 'Illegal Dumping', location: 'Shiashie',
-    description: 'Construction debris dumped on the beach road shoulder. Cleared after report — thank you AWMA.',
-    status: 'Resolved', crew: 'alpha', hasPhoto: true,
-    timeline: [
-      ev('Submitted', daysAgo(14, 2), CITIZEN.name),
-      ev('Acknowledged', daysAgo(13, 7), 'Kofi M. · AWMA'),
-      ev('Assigned', daysAgo(13, 1), 'Kofi M. · AWMA'),
-      ev('In Progress', daysAgo(11, 3), 'Crew Alpha'),
-      ev('Resolved', daysAgo(9, 5), 'Crew Alpha'),
-    ],
-  },
-  {
-    id: 'FMC-2026-0327', category: 'Blocked Drain', location: 'Legon (near University of Ghana)',
-    description: 'Reported a blocked drain but the photo shows a private compound, not a public drain.',
-    status: 'Rejected', crew: null, hasPhoto: true, rejectReason: 'Outside AWMA jurisdiction (private property)',
-    timeline: [
-      ev('Submitted', daysAgo(16, 1), CITIZEN.name),
-      ev('Rejected', daysAgo(15, 4), 'Akua O. · AWMA'),
-    ],
-  },
-];
-
-/* ---- Transition logic -------------------------------------------------- */
+/* ---- Timeline display helper ------------------------------------------- */
 // Build display timeline: completed events + greyed pending canonical steps
 export function buildTimeline(report: Report): TimelineStep[] {
   const steps: TimelineStep[] = report.timeline.map(e => ({ ...e, done: true as const }));
@@ -241,8 +182,58 @@ export function buildTimeline(report: Report): TimelineStep[] {
   return steps;
 }
 
-export function crewName(id: string | null): string | null { const c = CREWS.find(c => c.id === id); return c ? c.name : null; }
-export function crewById(id: string | null): Crew | null { return CREWS.find(c => c.id === id) || null; }
+/* Crew lookups reflect the fetched crew list (module mirror so plain helpers
+   stay usable outside the provider). */
+let _liveCrews: Crew[] = [];
+export function crewName(id: string | null): string | null { const c = _liveCrews.find(c => c.id === id); return c ? c.name : null; }
+export function crewById(id: string | null): Crew | null { return _liveCrews.find(c => c.id === id) || null; }
+
+/* ---- Row mappers --------------------------------------------------------- */
+function mapCrew(row: CrewRow): Crew {
+  return {
+    id: row.id,
+    name: row.name,
+    dept: DEPT_LABEL[row.department],
+    lead: row.lead_name,
+    phone: row.phone,
+    available: row.available,
+    members: row.member_count,
+  };
+}
+
+/* Citizens cannot read staff profiles under RLS (by design), so timeline
+   actors resolve to the user's own name or a role label. */
+function actorLabel(t: TransitionRow, uid: string, userName: string, crewId: string | null): string {
+  if (t.actor_id === uid) return userName;
+  if (t.actor_role === 'crew') return crewName(crewId) ?? 'Field crew';
+  if (t.actor_role === 'officer' || t.actor_role === 'admin') return 'AWMA';
+  return 'AWMA';
+}
+
+function mapReport(row: ReportRow & { status_transitions: TransitionRow[] }, uid: string, userName: string): Report {
+  const transitions = [...row.status_transitions].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const rejected = transitions.find(t => t.to_status === 'rejected');
+  return {
+    id: row.reference,
+    uuid: row.id,
+    category: DB_TO_CATEGORY[row.category],
+    location: row.location_name as LocationName,
+    description: row.description,
+    status: DB_TO_STATUS[row.status],
+    crew: row.assigned_crew_id,
+    hasPhoto: row.photo_urls.length > 0,
+    photoPath: row.photo_urls[0] ?? null,
+    rejectReason: rejected?.note ?? undefined,
+    timeline: transitions.map(t => ({
+      status: DB_TO_STATUS[t.to_status],
+      timestamp: t.created_at,
+      actor: actorLabel(t, uid, userName, row.assigned_crew_id),
+      note: t.note ?? undefined,
+    })),
+  };
+}
 
 /* ---- Context ----------------------------------------------------------- */
 const StoreContext = createContext<StoreValue | null>(null);
@@ -253,49 +244,139 @@ export function useStore(): StoreValue {
   return store;
 }
 
+async function describeError(error: unknown): Promise<string> {
+  if (error instanceof FunctionsHttpError) {
+    try {
+      const body = await error.context.json();
+      if (body && typeof body.error === 'string') return body.error;
+    } catch { /* fall through */ }
+    return 'The request was refused.';
+  }
+  return error instanceof Error ? error.message : 'Something went wrong.';
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
+  const [authReady, setAuthReady] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
   const [user, setUser] = useState<CitizenUser | null>(null);
-  const [reports, setReports] = useState<Report[]>(() => SEED_REPORTS.map(r => ({ ...r })));
+  const [reports, setReports] = useState<Report[]>([]);
+  const [crews, setCrews] = useState<Crew[]>([]);
 
-  const signIn = useCallback(() => {
-    // TODO: replace with supabase
-    setUser(CITIZEN);
+  /* Load profile + crews + reports for the signed-in user. */
+  const loadAll = useCallback(async (userId: string, email: string) => {
+    const [{ data: profile }, { data: crewRows }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('crews').select('*').order('name'),
+    ]);
+    const name = (profile as ProfileRow | null)?.full_name || email;
+    const citizen: CitizenUser = { name, firstName: name.split(/\s+/)[0], email };
+    setUser(citizen);
+    const mappedCrews = (crewRows ?? []).map(mapCrew);
+    _liveCrews = mappedCrews;
+    setCrews(mappedCrews);
+
+    const { data: reportRows } = await supabase
+      .from('reports')
+      .select('*, status_transitions(*)')
+      .order('created_at', { ascending: false });
+    setReports((reportRows ?? []).map(r => mapReport(r, userId, name)));
   }, []);
 
-  const signOut = useCallback(() => {
-    // TODO: replace with supabase
-    setUser(null);
+  const refresh = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) await loadAll(session.user.id, session.user.email ?? '');
+  }, [loadAll]);
+
+  /* Session bootstrap + auth state changes. */
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (cancelled) return;
+      if (session?.user) {
+        setUid(session.user.id);
+        await loadAll(session.user.id, session.user.email ?? '');
+      }
+      if (!cancelled) setAuthReady(true);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUid(null); setUser(null); setReports([]);
+      } else if (event === 'SIGNED_IN' && session.user) {
+        setUid(session.user.id);
+        void loadAll(session.user.id, session.user.email ?? '');
+      }
+    });
+    return () => { cancelled = true; subscription.unsubscribe(); };
+  }, [loadAll]);
+
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    return error ? { error: error.message } : {};
   }, []);
 
-  const submitReport = useCallback((draft: ReportDraft): Report => {
-    // TODO: replace with supabase
-    const id = 'FMC-2026-0' + (430 + Math.floor(Math.random() * 60));
-    const report: Report = {
-      id,
-      category: draft.category,
-      location: draft.location,
-      hasPhoto: !!draft.hasPhoto,
-      description: draft.description || 'No description provided.',
-      status: 'Submitted',
-      crew: null,
-      timeline: [{ status: 'Submitted', timestamp: nowISO(), actor: CITIZEN.name }],
-    };
-    setReports(prev => [report, ...prev]);
-    return report;
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { full_name: name.trim() } },
+    });
+    if (error) return { error: error.message };
+    // with email confirmation enabled there is no session yet
+    return data.session ? {} : { pendingConfirmation: true };
   }, []);
 
-  const reopenReport = useCallback((id: string) => {
-    // TODO: replace with supabase
-    setReports(prev => prev.map(r =>
-      r.id === id
-        ? { ...r, status: 'Reopened' as const, timeline: [...r.timeline, { status: 'Reopened' as const, timestamp: nowISO(), actor: CITIZEN.name }] }
-        : r
-    ));
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
   }, []);
+
+  const submitReport = useCallback(async (draft: ReportDraft): Promise<{ report?: Report; error?: string }> => {
+    if (!uid || !user) return { error: 'You are signed out. Please sign in again.' };
+    try {
+      const blob = await compressImage(draft.photo);
+      const path = `${uid}/${crypto.randomUUID()}.webp`;
+      const { error: uploadErr } = await supabase.storage
+        .from('report-photos')
+        .upload(path, blob, { contentType: 'image/webp' });
+      if (uploadErr) return { error: uploadErr.message };
+
+      const geo = GEO[draft.location];
+      const { data, error } = await supabase.functions.invoke('submit-report', {
+        body: {
+          category: CATEGORY_TO_DB[draft.category],
+          location_name: draft.location,
+          lat: geo.lat,
+          lng: geo.lng,
+          description: draft.description,
+          photo_path: path,
+        },
+      });
+      if (error) return { error: await describeError(error) };
+
+      const report = mapReport({ ...data.report, status_transitions: [] }, uid, user.name);
+      report.timeline = [{ status: 'Submitted', timestamp: data.report.created_at, actor: user.name }];
+      setReports(prev => [report, ...prev]);
+      void refresh();
+      return { report };
+    } catch (e) {
+      return { error: await describeError(e) };
+    }
+  }, [uid, user, refresh]);
+
+  const reopenReport = useCallback(async (id: string): Promise<{ error?: string }> => {
+    const target = reports.find(r => r.id === id);
+    if (!target?.uuid) return { error: 'Report not found.' };
+    const { error } = await supabase.functions.invoke('transition-report', {
+      body: { report_id: target.uuid, action: 'reopen' },
+    });
+    if (error) return { error: await describeError(error) };
+    await refresh();
+    return {};
+  }, [reports, refresh]);
 
   const value = useMemo<StoreValue>(() => ({
-    user, reports, crews: CREWS, signIn, signOut, submitReport, reopenReport,
-  }), [user, reports, signIn, signOut, submitReport, reopenReport]);
+    authReady, user, reports, crews,
+    signIn, signUp, signOut, submitReport, reopenReport,
+  }), [authReady, user, reports, crews, signIn, signUp, signOut, submitReport, reopenReport]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

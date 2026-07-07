@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import Icon from './Icon.tsx';
+import { signedPhotoUrl } from '../lib/supabase.ts';
 import type { Report } from '../lib/store.tsx';
 
 /* ---- Photo placeholder (striped, with mono label) ---------------------- */
@@ -22,33 +24,26 @@ export function PhotoPlaceholder({ label = 'photo', className = '', style = {} }
   );
 }
 
-/* ---- Report photo (real, user-droppable image keyed by report id) ------ */
-// Wraps <image-slot> so a dropped photo persists and syncs across every view
-// that shows the same report. readOnly slots are display-only (clicks pass
-// through to the row).
-export function ReportPhoto({ report, className = '', style = {}, shape = 'rounded', radius = 12, placeholder = 'Drop a photo', readOnly = false }: {
+/* ---- Report photo (loaded from the private storage bucket) ------------- */
+// Photos live in the report-photos bucket; viewing needs a short-lived signed
+// URL, so this resolves one and falls back to the striped placeholder.
+export function ReportPhoto({ report, className = '', style = {} }: {
   report: Report;
   className?: string;
   style?: CSSProperties;
-  shape?: string;
-  radius?: number;
-  placeholder?: string;
-  readOnly?: boolean;
 }) {
-  const id = 'rpt-photo-' + report.id;
-  return (
-    <image-slot
-      id={id}
-      shape={shape}
-      radius={String(radius)}
-      placeholder={placeholder}
-      class={className}
-      style={{
-        display: 'block',
-        background: 'repeating-linear-gradient(135deg,#E7EBF0 0 14px,#EDF1F5 14px 28px)',
-        ...style,
-        ...(readOnly ? { pointerEvents: 'none' as const } : {}),
-      }}
-    />
-  );
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setUrl(null);
+    if (report.photoPath) {
+      signedPhotoUrl(report.photoPath).then(u => { if (alive) setUrl(u); });
+    }
+    return () => { alive = false; };
+  }, [report.photoPath]);
+
+  if (!report.photoPath || !url) {
+    return <PhotoPlaceholder label={report.photoPath ? 'loading photo' : 'no photo'} className={className} style={style} />;
+  }
+  return <img src={url} alt={report.category} className={`object-cover ${className}`} style={style} />;
 }
