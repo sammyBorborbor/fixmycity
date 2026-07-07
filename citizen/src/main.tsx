@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 
 import './lib/image-slot.js'; // registers the <image-slot> custom element
 import './index.css';
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <StoreProvider>
         <App />
+        <Analytics />
       </StoreProvider>
     </BrowserRouter>
   </React.StrictMode>
