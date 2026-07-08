@@ -82,8 +82,14 @@ from `fixmycity@aseda-pos.byte24systems.com` instead of the rate-limited default
 wired in `config.toml`): table-based, email-client-safe HTML matching the FixMyCity brand
 (navy→blue header, white card, gold bulletproof CTA, plaintext fallback link). Replaces
 Supabase's plain default. Applied to the hosted project via the dashboard (Confirm signup +
-Reset Password templates). Confirm-signup is live; the recovery template is ready but its
-in-app reset flow is not wired yet (see backlog).
+Reset Password templates).
+
+✅ **Forgot-password / reset flow** (`84b30af`): login "Forgot password?" view sends a reset
+email (`resetPasswordForEmail`); the recovery link lands on a new `/reset-password` screen
+(`citizen/src/screens/ResetPassword.tsx`) that requires a valid recovery session and calls
+`updateUser` to set the new password (invalid/expired state otherwise). Store gains
+`sendPasswordReset` + `updatePassword`. **Dashboard TODO:** add `/reset-password` (prod +
+preview wildcard + `http://localhost:5173/reset-password`) to the Supabase redirect allowlist.
 
 ---
 
@@ -192,8 +198,8 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 - [x] Fix + commit the signup email-confirmation `/auth/callback` redirect (M2).
 - [x] Brand the confirm-signup + password-reset auth email templates (M2).
-- [ ] Wire the citizen "Forgot password?" flow: `resetPasswordForEmail` + an update-password
-  screen for the recovery link to land on (the branded recovery email is ready, flow is not).
+- [x] Wire the citizen "Forgot password?" flow: `resetPasswordForEmail` + `/reset-password`
+  update-password screen (needs `/reset-password` added to the Supabase redirect allowlist).
 - [ ] Ship the external image-model API and wire `_shared/image-model.ts` — unblocks both AI features (M5).
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
 - [ ] Persist console Users, Crews roster, Settings, Profile (schema addition).
@@ -211,7 +217,11 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Citizen Issue Map fills the available screen height (flex-fill) instead of a fixed 360px
+1. Forgot-password / reset flow — login "Forgot password?" view + `/reset-password` screen.
+2. Sign-out confirmation; cleared prefilled demo login credentials.
+3. Pinned the citizen bottom nav (viewport-locked layout); only the content area scrolls.
+4. Branded auth email templates (`confirmation.html` + `recovery.html`).
+5. Citizen Issue Map fills the available screen height (flex-fill) instead of a fixed 360px
    box, removing the dead space below the legend.
 2. Citizen report cancellation — a reporter can withdraw their own report while still
    Submitted (before acknowledgement) via the new `cancel-report` edge function (hard delete:
