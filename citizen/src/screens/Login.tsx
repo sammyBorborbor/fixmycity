@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
+import InstallPrompt from '../components/InstallPrompt.tsx';
 
 /* Login / Sign-in — its own minimal status bar, no bottom nav. */
 export default function Login() {
@@ -154,6 +155,8 @@ export default function Login() {
                 <>Already have an account? <button onClick={() => { setView('signin'); setError(null); setInfo(null); }} className="font-semibold text-ocean">Sign in</button></>
               )}
             </p>
+
+            <InstallPrompt className="mt-5" />
           </div>
 
           <p className="text-center text-[11px] text-muted py-5 font-mono shrink-0">FixMyCity · AWMA pilot · Accra</p>

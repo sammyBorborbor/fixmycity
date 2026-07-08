@@ -8,6 +8,7 @@ import './index.css';
 
 import App from './App.tsx';
 import { StoreProvider } from './lib/store.tsx';
+import './lib/installPrompt.ts'; // capture beforeinstallprompt as early as possible
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

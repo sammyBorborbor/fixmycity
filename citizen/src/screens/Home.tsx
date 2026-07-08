@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.tsx';
 import type { Report } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import ReportCard from '../components/ReportCard.tsx';
+import InstallPrompt from '../components/InstallPrompt.tsx';
 
 function bySubmittedDesc(a: Report, b: Report) {
   return new Date(b.timeline[0].timestamp).getTime() - new Date(a.timeline[0].timestamp).getTime();
@@ -56,6 +57,8 @@ export default function Home() {
           <p className="text-xs text-muted">In progress</p>
         </div>
       </div>
+
+      <InstallPrompt className="mt-4" />
 
       {/* recent */}
       <div className="flex items-center justify-between mt-6 mb-2">
