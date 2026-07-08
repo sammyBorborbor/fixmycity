@@ -6,7 +6,7 @@ import Btn from '../components/Btn.tsx';
 import StatusPill from '../components/StatusPill.tsx';
 import CategoryBadge from '../components/CategoryBadge.tsx';
 import Timeline from '../components/Timeline.tsx';
-import { ReportPhoto } from '../components/PhotoBox.tsx';
+import { ReportPhotos } from '../components/PhotoBox.tsx';
 
 export default function ReportDetail() {
   const { id } = useParams();
@@ -31,7 +31,7 @@ export default function ReportDetail() {
     <div className="fade-in pb-6">
       {/* photo header */}
       <div className="relative">
-        <ReportPhoto report={report} className="w-full" style={{ height: 220 }} />
+        <ReportPhotos report={report} className="w-full" style={{ height: 220 }} />
         <button onClick={() => navigate(-1)} className="absolute top-4 left-4 w-9 h-9 rounded-full bg-white/95 shadow flex items-center justify-center text-navy">
           <Icon name="ChevronLeft" size={20} />
         </button>

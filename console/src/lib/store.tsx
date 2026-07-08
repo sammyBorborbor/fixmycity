@@ -55,7 +55,7 @@ export interface Report {
   status: StatusName;
   crew: string | null;        // assigned crew id
   hasPhoto: boolean;
-  photoPath?: string | null;  // storage path in the report-photos bucket
+  photoPaths: string[];       // storage paths in the report-photos bucket (1-5)
   reporterName?: string;      // reporter's display name
   rejectReason?: string;
   aiSuggestedCategory?: CategoryName | null;
@@ -142,7 +142,7 @@ export const CANONICAL: StatusName[] = ['Submitted', 'Acknowledged', 'Assigned',
 /* ---- Categories -------------------------------------------------------- */
 export const CATEGORIES: Record<CategoryName, CategoryInfo> = {
   'Illegal Dumping':    { icon: 'Trash2',    blurb: 'Waste dumped in unauthorised areas', accent: '#1E5F8E' },
-  'Blocked Drain':      { icon: 'Waves',     blurb: 'Clogged gutters & storm drains',     accent: '#1E5F8E' },
+  'Blocked Drain':      { icon: 'WavesHorizontal', blurb: 'Clogged gutters & storm drains', accent: '#1E5F8E' },
   'Broken Streetlight': { icon: 'Lightbulb', blurb: 'Faulty or dark street lighting',     accent: '#C8932F' },
 };
 
@@ -264,7 +264,7 @@ function mapReport(
     status: DB_TO_STATUS[row.status],
     crew: row.assigned_crew_id,
     hasPhoto: row.photo_urls.length > 0,
-    photoPath: row.photo_urls[0] ?? null,
+    photoPaths: row.photo_urls,
     reporterName: (row.reporter_id && names.get(row.reporter_id)) || 'Resident',
     rejectReason: rejected?.note ?? undefined,
     aiSuggestedCategory: row.ai_suggested_category ? DB_TO_CATEGORY[row.ai_suggested_category] : null,

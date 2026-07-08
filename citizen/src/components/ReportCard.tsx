@@ -1,6 +1,6 @@
 import Icon from './Icon.tsx';
 import StatusPill from './StatusPill.tsx';
-import { PhotoPlaceholder } from './PhotoBox.tsx';
+import { PhotoThumb } from './PhotoBox.tsx';
 import type { Report } from '../lib/store.tsx';
 
 /* Report list item. */
@@ -8,7 +8,7 @@ export default function ReportCard({ r, onClick, unread }: { r: Report; onClick:
   return (
     <button onClick={onClick}
       className="w-full text-left bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-3 flex gap-3 items-center hover:ring-ocean/30 hover:shadow transition">
-      <PhotoPlaceholder label="" className="rounded-lg shrink-0" style={{ width: 56, height: 56 }} />
+      <PhotoThumb path={r.photoPaths[0] ?? null} className="rounded-lg shrink-0" style={{ width: 56, height: 56 }} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="font-semibold text-ink text-[15px] truncate">{r.category}</p>

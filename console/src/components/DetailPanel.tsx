@@ -12,26 +12,56 @@ import { signedPhotoUrl } from '../lib/supabase.ts';
 
 const REJECT_REASONS = ['Outside AWMA jurisdiction (private property)', 'Duplicate of an existing report', 'Insufficient information', 'Not a valid issue'];
 
-/* Report photo from the private storage bucket (signed URL), with the striped
-   placeholder as the empty / loading state. */
-function ReportPhoto({ report, className = '', style = {} }: {
-  report: Report; className?: string; style?: CSSProperties;
-}) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    setUrl(null);
-    if (report.photoPath) signedPhotoUrl(report.photoPath).then(u => { if (alive) setUrl(u); });
-    return () => { alive = false; };
-  }, [report.photoPath]);
-
-  if (report.photoPath && url) {
-    return <img src={url} alt={report.category} className={`object-cover ${className}`} style={style} />;
-  }
+/* Striped placeholder for the empty / loading photo state. */
+function PhotoPlaceholder({ className = '', style = {} }: { className?: string; style?: CSSProperties }) {
   return (
     <div className={`flex items-center justify-center ${className}`}
       style={{ background: 'repeating-linear-gradient(135deg,#E7EBF0 0 14px,#EDF1F5 14px 28px)', ...style }}>
       <Icon name="Image" size={26} className="text-muted opacity-50" />
+    </div>
+  );
+}
+
+/* Report photos from the private storage bucket (signed URLs): main image plus a
+   tappable thumbnail strip when there is more than one. */
+function ReportPhotos({ report, className = '', style = {} }: {
+  report: Report; className?: string; style?: CSSProperties;
+}) {
+  const paths = report.photoPaths;
+  const [urls, setUrls] = useState<Array<string | null>>([]);
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset while the new signed URLs resolve, keyed on the photo set
+    setUrls(paths.map(() => null));
+    setActive(0);
+    Promise.all(paths.map(p => signedPhotoUrl(p)))
+      .then(res => { if (alive) setUrls(res); })
+      .catch(() => { /* keep placeholders */ });
+    return () => { alive = false; };
+  }, [paths]);
+
+  if (paths.length === 0) return <PhotoPlaceholder className={className} style={style} />;
+
+  const mainUrl = urls[active];
+  return (
+    <div>
+      {mainUrl
+        ? <img src={mainUrl} alt={report.category} className={`object-cover ${className}`} style={style} />
+        : <PhotoPlaceholder className={className} style={style} />}
+      {paths.length > 1 && (
+        <div className="flex gap-2 px-4 py-2 overflow-x-auto">
+          {paths.map((p, i) => (
+            <button key={p} onClick={() => setActive(i)} aria-label={`View photo ${i + 1}`}
+              className={`shrink-0 rounded-lg overflow-hidden ring-2 transition ${i === active ? 'ring-ocean' : 'ring-transparent'}`}>
+              {urls[i]
+                ? <img src={urls[i]!} alt={`photo ${i + 1}`} className="h-14 w-14 object-cover" />
+                : <PhotoPlaceholder className="h-14 w-14" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -54,7 +84,10 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
   useEffect(() => { setRejectOpen(false); setAssignOpen(false); setError(null); setDuplicateOfId(''); }, [reportId]);
 
   // default the assign selector to the first available crew once crews load
-  useEffect(() => { if (!crew && crews[0]) setCrew(crews[0].id); }, [crews, crew]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time default once crews arrive; guarded so it doesn't override a user pick
+    if (!crew && crews[0]) setCrew(crews[0].id);
+  }, [crews, crew]);
 
   // AI feature 2: fetch possible duplicates for open reports when the panel opens
   useEffect(() => {
@@ -104,7 +137,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <ReportPhoto report={report} className="w-full" style={{ height: 200 }} />
+          <ReportPhotos report={report} className="w-full" style={{ height: 200 }} />
 
           <div className="p-5">
             <div className="flex items-center justify-between gap-3">

@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
   const description = (body.description as string ?? '').trim();
   const lat = Number(body.lat);
   const lng = Number(body.lng);
-  const photoPath = body.photo_path as string;
+  const photoPaths = body.photo_paths as unknown;
 
   if (!CATEGORIES.includes(category)) return json({ error: 'invalid category' }, 400);
   if (!locationName || locationName.length > 120) return json({ error: 'invalid location_name' }, 400);
@@ -63,27 +63,36 @@ Deno.serve(async (req) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 4 || lat > 12 || lng < -4 || lng > 2) {
     return json({ error: 'invalid coordinates' }, 400);
   }
-  // photo is mandatory and must live in the caller's own storage folder
-  if (typeof photoPath !== 'string' || !new RegExp(`^${user.id}/[\\w.-]+$`).test(photoPath)) {
+  // at least one photo is mandatory (FR-011), capped at 5; each must live in the
+  // caller's own storage folder
+  const MAX_PHOTOS = 5;
+  const ownFolder = new RegExp(`^${user.id}/[\\w.-]+$`);
+  if (!Array.isArray(photoPaths) || photoPaths.length < 1 || photoPaths.length > MAX_PHOTOS) {
+    return json({ error: `1-${MAX_PHOTOS} photos required` }, 400);
+  }
+  if (!photoPaths.every((p) => typeof p === 'string' && ownFolder.test(p))) {
     return json({ error: 'photo required (upload it to your folder first)' }, 400);
   }
+  const paths = photoPaths as string[];
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // the photo must actually exist
-  const { error: photoErr } = await admin.storage.from('report-photos').createSignedUrl(photoPath, 60);
-  if (photoErr) return json({ error: 'photo not found in storage' }, 400);
+  // every photo must actually exist in storage
+  for (const p of paths) {
+    const { error: photoErr } = await admin.storage.from('report-photos').createSignedUrl(p, 60);
+    if (photoErr) return json({ error: 'photo not found in storage' }, 400);
+  }
 
   // Authoritative embedding for check-duplicates (milestone 5): recomputed here
   // from the verified stored photo (not trusted from the client), via the
-  // team's image model. A photo the model can't process must never block
-  // report submission.
+  // team's image model. Driven by the first photo (one embedding per report).
+  // A photo the model can't process must never block report submission.
   let embedding: number[] | null = null;
   try {
-    const { data: photoBlob, error: dlErr } = await admin.storage.from('report-photos').download(photoPath);
+    const { data: photoBlob, error: dlErr } = await admin.storage.from('report-photos').download(paths[0]);
     if (!dlErr && photoBlob) {
       const bytes = new Uint8Array(await photoBlob.arrayBuffer());
       const result = await classifyAndEmbed(bytesToBase64(bytes), photoBlob.type || 'image/webp');
@@ -113,7 +122,7 @@ Deno.serve(async (req) => {
       description,
       location: `SRID=4326;POINT(${lng} ${lat})`,
       location_name: locationName,
-      photo_urls: [photoPath],
+      photo_urls: paths,
       reporter_id: user.id,
       embedding,
       ai_suggested_category: aiSuggestedCategory,

@@ -10,15 +10,18 @@ import CategoryBadge from '../components/CategoryBadge.tsx';
 import ProgressBar from '../components/ProgressBar.tsx';
 import LocationPicker from '../components/LocationPicker.tsx';
 
+const MAX_PHOTOS = 5;
+
 export default function ReportFlow() {
   const { submitReport, classifyImage, user } = useStore();
   const navigate = useNavigate();
-  const fileInput = useRef<HTMLInputElement | null>(null);
+  const cameraInput = useRef<HTMLInputElement | null>(null);
+  const galleryInput = useRef<HTMLInputElement | null>(null);
 
   const [step, setStep] = useState(1);
   const [category, setCategory] = useState<CategoryName | null>(null);
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [desc, setDesc] = useState('');
   const [location, setLocation] = useState<LocationName>('Okponglo');
   const [position, setPosition] = useState(() => GEO['Okponglo']);
@@ -29,18 +32,22 @@ export default function ReportFlow() {
   const [aiChecking, setAiChecking] = useState(false);
   const [aiDismissed, setAiDismissed] = useState(false);
 
-  // object URLs leak unless revoked when replaced/unmounted
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  // keep object-URL previews in sync with the selected files; revoke on change/unmount
+  useEffect(() => {
+    const urls = photos.map(p => URL.createObjectURL(p));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing object-URL previews to the selected files; revoked on cleanup
+    setPreviews(urls);
+    return () => urls.forEach(u => URL.revokeObjectURL(u));
+  }, [photos]);
 
-  function pickPhoto(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (preview) URL.revokeObjectURL(preview);
-    setPhoto(file);
-    setPreview(URL.createObjectURL(file));
-    e.target.value = '';
+  function clearAi() {
+    setAiSuggestion(null);
+    setAiChecking(false);
+    setAiDismissed(false);
+  }
 
-    // AI feature 1: suggest a category from the photo; citizen can accept or ignore
+  // AI feature 1: suggest a category from the FIRST photo; citizen can accept or ignore
+  function runClassify(file: File) {
     setAiSuggestion(null);
     setAiDismissed(false);
     setAiChecking(true);
@@ -49,24 +56,31 @@ export default function ReportFlow() {
         setAiChecking(false);
         if (suggestion) setAiSuggestion(suggestion);
       })
-      .catch(() => setAiChecking(false)); // fail soft: no suggestion rather than an unhandled rejection
+      .catch(() => setAiChecking(false)); // fail soft
   }
 
-  function clearPhoto() {
-    if (preview) URL.revokeObjectURL(preview);
-    setPhoto(null);
-    setPreview(null);
-    setAiSuggestion(null);
-    setAiChecking(false);
-    setAiDismissed(false);
+  function addPhotos(e: ChangeEvent<HTMLInputElement>) {
+    const incoming = Array.from(e.target.files ?? []).filter(f => f.type.startsWith('image/'));
+    e.target.value = ''; // allow re-picking the same file
+    if (incoming.length === 0) return;
+    const wasEmpty = photos.length === 0;
+    const next = [...photos, ...incoming].slice(0, MAX_PHOTOS);
+    setPhotos(next);
+    if (wasEmpty && next[0]) runClassify(next[0]); // re-classify only when the first photo appears
+  }
+
+  function removePhoto(i: number) {
+    const next = photos.filter((_, idx) => idx !== i);
+    setPhotos(next);
+    if (i === 0) { if (next[0]) runClassify(next[0]); else clearAi(); }
   }
 
   async function submit() {
-    if (!category || !photo || busy) return;
+    if (!category || photos.length === 0 || busy) return;
     setBusy(true);
     setError(null);
     const { report, error: submitError } = await submitReport({
-      category, location, lat: position.lat, lng: position.lng, description: desc, photo,
+      category, location, lat: position.lat, lng: position.lng, description: desc, photos,
       aiSuggestedCategory: aiSuggestion?.category,
       aiConfidence: aiSuggestion?.confidence,
     });
@@ -80,7 +94,7 @@ export default function ReportFlow() {
   }
 
   function reset() {
-    setStep(1); setCategory(null); clearPhoto(); setDesc(''); setNewId(null); setError(null);
+    setStep(1); setCategory(null); setPhotos([]); clearAi(); setDesc(''); setNewId(null); setError(null);
   }
 
   return (
@@ -124,24 +138,46 @@ export default function ReportFlow() {
             <p className="font-semibold text-ink">{category}</p>
           </div>
 
-          {/* camera */}
+          {/* photos (1-5) */}
           <div>
-            <label className="text-xs font-semibold text-muted uppercase tracking-wide">Photo</label>
-            <input ref={fileInput} type="file" accept="image/*" capture="environment" hidden onChange={pickPhoto} />
-            {!preview ? (
-              <div className="mt-1.5 rounded-xl ring-1 ring-dashed ring-gray-300 bg-gray-50 h-44 flex flex-col items-center justify-center gap-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-muted uppercase tracking-wide">Photo</label>
+              {photos.length > 0 && <span className="text-[11px] font-medium text-muted">{photos.length}/{MAX_PHOTOS}</span>}
+            </div>
+            {/* hidden inputs: camera opens the rear camera, gallery allows multi-select */}
+            <input ref={cameraInput} type="file" accept="image/*" capture="environment" hidden onChange={addPhotos} />
+            <input ref={galleryInput} type="file" accept="image/*" multiple hidden onChange={addPhotos} />
+
+            {photos.length === 0 ? (
+              <div className="mt-1.5 rounded-xl ring-1 ring-dashed ring-gray-300 bg-gray-50 py-6 flex flex-col items-center justify-center gap-3">
                 <Icon name="Camera" size={30} className="text-gray-400" />
-                <Btn variant="primary" onClick={() => fileInput.current?.click()} icon="Camera">Take Photo</Btn>
+                <div className="flex gap-2">
+                  <Btn variant="primary" onClick={() => cameraInput.current?.click()} icon="Camera">Take photo</Btn>
+                  <Btn variant="outline" onClick={() => galleryInput.current?.click()} icon="Image">Gallery</Btn>
+                </div>
               </div>
             ) : (
-              <div className="mt-1.5 relative">
-                <img src={preview} alt="report" className="rounded-xl h-44 w-full object-cover" />
-                <button onClick={clearPhoto} className="absolute top-2 right-2 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center shadow text-navy">
-                  <Icon name="RotateCcw" size={15} />
-                </button>
-                <span className="absolute bottom-2 left-2 bg-green-600 text-white text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Icon name="Check" size={12} /> Photo added
-                </span>
+              <div className="mt-1.5 flex flex-col gap-2.5">
+                <div className="flex flex-wrap gap-2">
+                  {previews.map((src, i) => (
+                    <div key={src} className="relative">
+                      <img src={src} alt={`photo ${i + 1}`} className="rounded-lg h-20 w-20 object-cover ring-1 ring-black/5" />
+                      <button onClick={() => removePhoto(i)}
+                        className="absolute -top-1.5 -right-1.5 bg-white rounded-full w-6 h-6 flex items-center justify-center shadow ring-1 ring-black/5 text-navy">
+                        <Icon name="X" size={13} />
+                      </button>
+                      {i === 0 && (
+                        <span className="absolute bottom-1 left-1 bg-green-600 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full">Main</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {photos.length < MAX_PHOTOS && (
+                  <div className="flex gap-2">
+                    <Btn size="sm" variant="outline" onClick={() => cameraInput.current?.click()} icon="Camera">Take photo</Btn>
+                    <Btn size="sm" variant="outline" onClick={() => galleryInput.current?.click()} icon="Image">Gallery</Btn>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -196,10 +232,10 @@ export default function ReportFlow() {
           </div>
 
           {error && <p className="text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2">{error}</p>}
-          <Btn size="lg" onClick={submit} icon="Send" className="w-full" disabled={!photo || busy}>
+          <Btn size="lg" onClick={submit} icon="Send" className="w-full" disabled={photos.length === 0 || busy}>
             {busy ? 'Submitting…' : 'Submit report'}
           </Btn>
-          {!photo && <p className="text-center text-[11px] text-muted -mt-2">Add a photo to submit</p>}
+          {photos.length === 0 && <p className="text-center text-[11px] text-muted -mt-2">Add a photo to submit</p>}
         </div>
       )}
 

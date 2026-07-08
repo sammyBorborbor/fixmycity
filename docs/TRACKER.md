@@ -61,9 +61,13 @@ Administrator) · Progressive Web App.
 - Console: role-gated — only `officer` / `admin` may sign in; others are signed back out
   with a "staff only" message. No sign-up (staff invited).
 
-✅ **Citizen submission is live end-to-end:** capture photo → compress to WebP → upload to
-`report-photos` bucket → invoke `submit-report` edge function → validated row + initial
-`submitted` transition + returned reference number. 3-step `ReportFlow` UI.
+✅ **Citizen submission is live end-to-end:** capture **1–5 photos** (camera or gallery
+multi-select) → compress each to WebP → upload to `report-photos` bucket → invoke
+`submit-report` edge function (validates array length 1–5, per-path ownership + existence) →
+validated row (`photo_urls text[]`) + initial `submitted` transition + returned reference
+number. 3-step `ReportFlow` UI. Photos shown as a main image + thumbnail strip in the report
+detail (citizen + console) and a first-photo thumbnail in list cards. The AI category
+suggestion runs on the first photo.
 
 ✅ **Email confirmation redirect fixed & committed** (`935ce24`): signup verification links
 were routing to the hosted project's default `localhost:3000` Site URL. Now `signUp` passes
@@ -199,21 +203,26 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Branded auth email templates — `supabase/templates/confirmation.html` + `recovery.html`
+1. Multiple report photos (1–5) with camera + gallery capture — `submit-report` now takes
+   `photo_paths[]` (validates 1–5, ownership, existence; embeds the first photo); citizen
+   picker supports camera and multi-select gallery with removable thumbnails; detail views
+   show a main image + thumbnail strip (both apps); list cards show a first-photo thumbnail.
+   DB `photo_urls text[]` already supported arrays — no migration.
+2. Branded auth email templates — `supabase/templates/confirmation.html` + `recovery.html`
    (table-based, gold CTA), wired in `config.toml` and applied to the hosted project.
-2. Fix missing Blocked Drain category icon in both apps — lucide renamed `Waves`, so the
+3. Fix missing Blocked Drain category icon in both apps — lucide renamed `Waves`, so the
    `Icon` wrapper fell back to a blank box; switched to `WavesHorizontal`.
-2. Citizen Home — empty state for "Your recent reports" (icon + message) instead of a blank
+4. Citizen Home — empty state for "Your recent reports" (icon + message) instead of a blank
    gap when the user has no reports; "View all" hidden when empty.
-3. Mobile PWA install prompt on citizen login + home (Android one-tap, iOS hint).
-4. Signup email-confirmation redirect fix — in-app `/auth/callback`, implicit-flow client
+5. Mobile PWA install prompt on citizen login + home (Android one-tap, iOS hint).
+6. Signup email-confirmation redirect fix — in-app `/auth/callback`, implicit-flow client
    config, `citizen/vercel.json` SPA rewrite; hosted Site URL + Resend Auth SMTP configured.
-5. Citizen PWA polish — manifest completeness, offline shell, iOS install.
-6. `LocationPicker` — geolocation + Nominatim reverse-geocoding, wired into submission.
-7. Resend transition-status emails — send helper, template, wired into `transition-report`.
-8. Leaflet maps in both apps + generated `lat`/`lng` columns on `reports`.
-9. AI duplicate detection — schema, `classify-image` + `check-duplicates`, console/citizen UI.
-10. Realtime — enabled on `notifications` + `reports`; both apps subscribe.
-11. `transition-report` state machine + console wired to Supabase.
-12. Citizen wired to Supabase — real auth, live reports, photo upload.
-13. Initial schema migration (RLS, PostGIS, pgvector) + both apps ported from prototypes.
+7. Citizen PWA polish — manifest completeness, offline shell, iOS install.
+8. `LocationPicker` — geolocation + Nominatim reverse-geocoding, wired into submission.
+9. Resend transition-status emails — send helper, template, wired into `transition-report`.
+10. Leaflet maps in both apps + generated `lat`/`lng` columns on `reports`.
+11. AI duplicate detection — schema, `classify-image` + `check-duplicates`, console/citizen UI.
+12. Realtime — enabled on `notifications` + `reports`; both apps subscribe.
+13. `transition-report` state machine + console wired to Supabase.
+14. Citizen wired to Supabase — real auth, live reports, photo upload.
+15. Initial schema migration (RLS, PostGIS, pgvector) + both apps ported from prototypes.

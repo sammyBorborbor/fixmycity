@@ -53,7 +53,7 @@ export interface Report {
   status: StatusName;
   crew: string | null;        // assigned crew id
   hasPhoto: boolean;
-  photoPath?: string | null;  // storage path in the report-photos bucket
+  photoPaths: string[];       // storage paths in the report-photos bucket (1-5)
   rejectReason?: string;
   timeline: TimelineEvent[];
 }
@@ -74,7 +74,7 @@ export interface ReportDraft {
   lat: number;
   lng: number;
   description: string;
-  photo: File;
+  photos: File[];             // 1-5 photos
   aiSuggestedCategory?: CategoryName;
   aiConfidence?: number;
 }
@@ -124,7 +124,7 @@ export const CANONICAL: StatusName[] = ['Submitted', 'Acknowledged', 'Assigned',
 /* ---- Categories -------------------------------------------------------- */
 export const CATEGORIES: Record<CategoryName, CategoryInfo> = {
   'Illegal Dumping':    { icon: 'Trash2',    blurb: 'Waste dumped in unauthorised areas', accent: '#1E5F8E' },
-  'Blocked Drain':      { icon: 'Waves',     blurb: 'Clogged gutters & storm drains',     accent: '#1E5F8E' },
+  'Blocked Drain':      { icon: 'WavesHorizontal', blurb: 'Clogged gutters & storm drains', accent: '#1E5F8E' },
   'Broken Streetlight': { icon: 'Lightbulb', blurb: 'Faulty or dark street lighting',     accent: '#C8932F' },
 };
 
@@ -235,7 +235,7 @@ function mapReport(row: ReportRow & { status_transitions: TransitionRow[] }, uid
     status: DB_TO_STATUS[row.status],
     crew: row.assigned_crew_id,
     hasPhoto: row.photo_urls.length > 0,
-    photoPath: row.photo_urls[0] ?? null,
+    photoPaths: row.photo_urls,
     rejectReason: rejected?.note ?? undefined,
     timeline: transitions.map(t => ({
       status: DB_TO_STATUS[t.to_status],
@@ -383,12 +383,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const submitReport = useCallback(async (draft: ReportDraft): Promise<{ report?: Report; error?: string }> => {
     if (!uid || !user) return { error: 'You are signed out. Please sign in again.' };
     try {
-      const blob = await compressImage(draft.photo);
-      const path = `${uid}/${crypto.randomUUID()}.webp`;
-      const { error: uploadErr } = await supabase.storage
-        .from('report-photos')
-        .upload(path, blob, { contentType: 'image/webp' });
-      if (uploadErr) return { error: uploadErr.message };
+      // compress + upload each photo (1-5); the report row is only created by the
+      // edge function afterwards, so a failed upload just aborts before any row exists
+      const paths: string[] = [];
+      for (const photo of draft.photos) {
+        const blob = await compressImage(photo);
+        const path = `${uid}/${crypto.randomUUID()}.webp`;
+        const { error: uploadErr } = await supabase.storage
+          .from('report-photos')
+          .upload(path, blob, { contentType: 'image/webp' });
+        if (uploadErr) return { error: uploadErr.message };
+        paths.push(path);
+      }
 
       const { data, error } = await supabase.functions.invoke('submit-report', {
         body: {
@@ -397,7 +403,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lat: draft.lat,
           lng: draft.lng,
           description: draft.description,
-          photo_path: path,
+          photo_paths: paths,
           ai_suggested_category: draft.aiSuggestedCategory ? CATEGORY_TO_DB[draft.aiSuggestedCategory] : undefined,
           ai_confidence: draft.aiConfidence,
         },
