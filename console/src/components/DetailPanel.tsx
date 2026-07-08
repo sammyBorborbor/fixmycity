@@ -6,24 +6,33 @@ import StatusPill from './StatusPill.tsx';
 import CategoryBadge from './CategoryBadge.tsx';
 import Timeline from './Timeline.tsx';
 import MapPlaceholder from './MapPlaceholder.tsx';
-import { useStore, CITIZEN, crewName, crewById, fmtDate } from '../lib/store.tsx';
-import type { Report } from '../lib/store.tsx';
+import { useStore, crewName, crewById, fmtDate } from '../lib/store.tsx';
+import type { Report, TransitionAction, TransitionOpts } from '../lib/store.tsx';
+import { signedPhotoUrl } from '../lib/supabase.ts';
 
 const REJECT_REASONS = ['Outside AWMA jurisdiction (private property)', 'Duplicate of an existing report', 'Insufficient information', 'Not a valid issue'];
 
-/* Real, user-droppable report photo (persists via <image-slot>). */
-function ReportPhoto({ report, className = '', style = {}, placeholder = 'Drop a photo' }: {
-  report: Report; className?: string; style?: CSSProperties; placeholder?: string;
+/* Report photo from the private storage bucket (signed URL), with the striped
+   placeholder as the empty / loading state. */
+function ReportPhoto({ report, className = '', style = {} }: {
+  report: Report; className?: string; style?: CSSProperties;
 }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setUrl(null);
+    if (report.photoPath) signedPhotoUrl(report.photoPath).then(u => { if (alive) setUrl(u); });
+    return () => { alive = false; };
+  }, [report.photoPath]);
+
+  if (report.photoPath && url) {
+    return <img src={url} alt={report.category} className={`object-cover ${className}`} style={style} />;
+  }
   return (
-    <image-slot
-      id={'rpt-photo-' + report.id}
-      shape="rect"
-      radius="0"
-      placeholder={placeholder}
-      class={className}
-      style={{ display: 'block', background: 'repeating-linear-gradient(135deg,#E7EBF0 0 14px,#EDF1F5 14px 28px)', ...style }}
-    />
+    <div className={`flex items-center justify-center ${className}`}
+      style={{ background: 'repeating-linear-gradient(135deg,#E7EBF0 0 14px,#EDF1F5 14px 28px)', ...style }}>
+      <Icon name="Image" size={26} className="text-muted opacity-50" />
+    </div>
   );
 }
 
@@ -33,14 +42,30 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
   const [rejectOpen, setRejectOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [reason, setReason] = useState(REJECT_REASONS[0]);
-  const [crew, setCrew] = useState(crews[0].id);
+  const [crew, setCrew] = useState(crews[0]?.id ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // reset the inline action forms whenever a different report is opened
   const reportId = report && report.id;
   // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional form reset keyed on the open report
-  useEffect(() => { setRejectOpen(false); setAssignOpen(false); }, [reportId]);
+  useEffect(() => { setRejectOpen(false); setAssignOpen(false); setError(null); }, [reportId]);
+
+  // default the assign selector to the first available crew once crews load
+  useEffect(() => { if (!crew && crews[0]) setCrew(crews[0].id); }, [crews, crew]);
 
   if (!report) return null;
+
+  async function act(action: TransitionAction, opts?: TransitionOpts) {
+    if (!report || busy) return;
+    setBusy(true);
+    setError(null);
+    const { error: err } = await transitionReport(report.id, action, opts);
+    setBusy(false);
+    if (err) { setError(err); return; }
+    setRejectOpen(false);
+    setAssignOpen(false);
+  }
 
   const can = {
     ack: report.status === 'Submitted' || report.status === 'Reopened',
@@ -64,7 +89,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <ReportPhoto report={report} placeholder={`Drop a ${report.category.toLowerCase()} photo`} className="w-full" style={{ height: 200 }} />
+          <ReportPhoto report={report} className="w-full" style={{ height: 200 }} />
 
           <div className="p-5">
             <div className="flex items-center justify-between gap-3">
@@ -83,8 +108,10 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
 
             {/* reporter + description */}
             <div className="mt-4 flex items-center gap-2 text-sm">
-              <span className="w-7 h-7 rounded-full bg-navy text-white text-[11px] font-bold flex items-center justify-center">AA</span>
-              <span className="text-ink font-medium">{CITIZEN.name}</span>
+              <span className="w-7 h-7 rounded-full bg-navy text-white text-[11px] font-bold flex items-center justify-center">
+                {(report.reporterName ?? 'R').trim().split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase()}
+              </span>
+              <span className="text-ink font-medium">{report.reporterName}</span>
               <span className="text-muted">· reporter</span>
             </div>
             <p className="text-sm text-ink mt-2 bg-white rounded-xl ring-1 ring-black/5 p-3 leading-relaxed">{report.description}</p>
@@ -103,6 +130,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
 
         {/* action bar */}
         <div className="shrink-0 border-t border-gray-100 bg-white p-4">
+          {error && <p className="text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mb-3">{error}</p>}
           {rejectOpen ? (
             <div className="fade-in">
               <label className="text-xs font-semibold text-muted uppercase tracking-wide">Rejection reason</label>
@@ -111,7 +139,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
               </select>
               <div className="flex gap-2 mt-3">
                 <Btn variant="outline" className="flex-1" onClick={() => setRejectOpen(false)}>Cancel</Btn>
-                <Btn variant="danger" className="flex-1" icon="Ban" onClick={() => { transitionReport(report.id, 'reject', { reason }); setRejectOpen(false); }}>Confirm reject</Btn>
+                <Btn variant="danger" className="flex-1" icon="Ban" disabled={busy} onClick={() => act('reject', { reason })}>Confirm reject</Btn>
               </div>
             </div>
           ) : assignOpen ? (
@@ -122,19 +150,19 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
               </select>
               <div className="flex gap-2 mt-3">
                 <Btn variant="outline" className="flex-1" onClick={() => setAssignOpen(false)}>Cancel</Btn>
-                <Btn variant="ocean" className="flex-1" icon="UserPlus" onClick={() => { transitionReport(report.id, 'assign', { crewId: crew }); setAssignOpen(false); }}>Confirm assign</Btn>
+                <Btn variant="ocean" className="flex-1" icon="UserPlus" disabled={busy} onClick={() => act('assign', { crewId: crew })}>Confirm assign</Btn>
               </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">
-                <Btn variant="primary" className="flex-1" icon="CheckCircle2" disabled={!can.ack} onClick={() => transitionReport(report.id, 'acknowledge')}>Acknowledge</Btn>
-                <Btn variant="ocean" className="flex-1" icon="UserPlus" disabled={!can.assign} onClick={() => setAssignOpen(true)}>Assign</Btn>
+                <Btn variant="primary" className="flex-1" icon="CheckCircle2" disabled={!can.ack || busy} onClick={() => act('acknowledge')}>Acknowledge</Btn>
+                <Btn variant="ocean" className="flex-1" icon="UserPlus" disabled={!can.assign || busy} onClick={() => setAssignOpen(true)}>Assign</Btn>
               </div>
               <div className="flex gap-2">
-                {can.progress && <Btn variant="gold" className="flex-1" icon="Play" onClick={() => transitionReport(report.id, 'in_progress')}>Mark in progress</Btn>}
-                {can.resolve && <Btn variant="green" className="flex-1" icon="CheckCheck" onClick={() => transitionReport(report.id, 'resolve')}>Mark resolved</Btn>}
-                <Btn variant="danger" className={can.progress || can.resolve ? '' : 'flex-1'} icon="Ban" disabled={!can.reject} onClick={() => setRejectOpen(true)}>Reject</Btn>
+                {can.progress && <Btn variant="gold" className="flex-1" icon="Play" disabled={busy} onClick={() => act('in_progress')}>Mark in progress</Btn>}
+                {can.resolve && <Btn variant="green" className="flex-1" icon="CheckCheck" disabled={busy} onClick={() => act('resolve')}>Mark resolved</Btn>}
+                <Btn variant="danger" className={can.progress || can.resolve ? '' : 'flex-1'} icon="Ban" disabled={!can.reject || busy} onClick={() => setRejectOpen(true)}>Reject</Btn>
               </div>
             </div>
           )}

@@ -23,9 +23,11 @@ export interface AppOutletContext {
   activeId: string | null;
 }
 
-/* Auth guard — everything below /login requires a signed-in user. */
+/* Auth guard — everything below /login requires a signed-in staff user. Waits
+   for the session restore so a reload doesn't bounce through /login. */
 function RequireAuth({ children }: { children: ReactElement }) {
-  const { user } = useStore();
+  const { user, authReady } = useStore();
+  if (!authReady) return <div className="w-full h-[100dvh] bg-paper" />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

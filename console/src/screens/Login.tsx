@@ -12,11 +12,21 @@ export default function Login() {
 
   useEffect(() => { if (user) navigate('/', { replace: true }); }, [user, navigate]);
 
-  const [email, setEmail] = useState('akua.osei@aywma.gov.gh');
+  const [email, setEmail] = useState('akua.osei@awma.gov.gh');
   const [pw, setPw] = useState('awma-ops-2026');
   const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function submit(e: FormEvent<HTMLFormElement>) { e.preventDefault(); signIn(); navigate('/', { replace: true }); }
+  async function submit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setError(null);
+    const { error: err } = await signIn(email, pw);
+    setBusy(false);
+    if (err) { setError(err); return; }
+    navigate('/', { replace: true });
+  }
 
   return (
     <div className="w-full h-[100dvh] flex items-center justify-center p-6 overflow-y-auto"
@@ -53,7 +63,11 @@ export default function Login() {
             <button type="button" className="text-xs font-semibold text-ocean">Forgot password?</button>
           </div>
 
-          <Btn size="lg" className="w-full mt-4" icon="LogIn" type="submit">Sign in</Btn>
+          {error && <p className="text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mt-3">{error}</p>}
+
+          <Btn size="lg" className="w-full mt-4" icon="LogIn" type="submit" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </Btn>
         </form>
 
         <p className="text-center text-white/40 text-[11px] mt-5 font-mono">Authorised personnel only · v0.9 pilot</p>

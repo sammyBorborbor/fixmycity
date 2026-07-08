@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { useStore, CATEGORIES, NOW } from '../lib/store.tsx';
+import { useStore, CATEGORIES } from '../lib/store.tsx';
 import type { CategoryName } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 
@@ -30,7 +30,7 @@ export default function Analytics() {
   // reports over last 6 "weeks" buckets from submitted timestamps
   const weeks = useMemo(() => [0, 1, 2, 3, 4, 5].map(w => {
     const hi = w * 3, lo = (w + 1) * 3; // 3-day buckets
-    return reports.filter(r => { const d = (NOW.getTime() - new Date(r.timeline[0].timestamp).getTime()) / 86400000; return d >= hi && d < lo; }).length;
+    return reports.filter(r => { const d = (Date.now() - new Date(r.timeline[0].timestamp).getTime()) / 86400000; return d >= hi && d < lo; }).length;
   }).reverse(), [reports]);
   const maxW = Math.max(1, ...weeks);
   const pts = weeks.map((n, i) => `${(i / (weeks.length - 1)) * 100},${40 - (n / maxW) * 34}`).join(' ');
