@@ -22,7 +22,7 @@ Administrator) · Progressive Web App.
 | Milestone | Status |
 | --- | --- |
 | M1 — Schema + RLS + seed | ✅ (seed file missing) |
-| M2 — Auth + citizen submission end-to-end | ✅ (Google OAuth in flight) |
+| M2 — Auth + citizen submission end-to-end | ✅ |
 | M3 — State machine + console wiring | ✅ |
 | M4 — Notifications (realtime + email) | ✅ (no web push) |
 | M5 — AI features (classify + duplicates) | 🔒 wired, blocked on image model |
@@ -65,9 +65,14 @@ Administrator) · Progressive Web App.
 `report-photos` bucket → invoke `submit-report` edge function → validated row + initial
 `submitted` transition + returned reference number. 3-step `ReportFlow` UI.
 
-🟡 **In progress — Google OAuth / `/auth/callback` (uncommitted in working tree):**
-`citizen/src/screens/AuthCallback.tsx` (new), plus modified `App.tsx`, `lib/store.tsx`,
-`lib/supabase.ts`, `screens/Login.tsx`, and new `citizen/vercel.json`. Finish and commit.
+✅ **Email confirmation redirect fixed & committed** (`935ce24`): signup verification links
+were routing to the hosted project's default `localhost:3000` Site URL. Now `signUp` passes
+`emailRedirectTo` → an in-app `/auth/callback` screen (`citizen/src/screens/AuthCallback.tsx`),
+with explicit `detectSessionInUrl` / implicit-flow client config and a `citizen/vercel.json`
+SPA rewrite so the route resolves in production. Hosted dashboard configured: Site URL →
+`https://fixmycity-citizen.vercel.app`, `/auth/callback` redirect allowlist (prod + preview
+wildcard + localhost), and Resend wired as **Auth Custom SMTP** so confirmation emails deliver
+from `fixmycity@aseda-pos.byte24systems.com` instead of the rate-limited default sender.
 
 ---
 
@@ -126,6 +131,11 @@ or embedding output is produced (so duplicate ranking has no vectors to compare)
 maskable icons, standalone, portrait), iOS install meta, offline **app-shell**
 (`navigateFallback: /index.html`).
 
+✅ **Mobile install prompt** (`6ddc3dc`): dismissible `InstallPrompt` banner on the citizen
+login + home screens — one-tap "Install app" on Android (via a captured `beforeinstallprompt`
+event stashed at startup in `lib/installPrompt.ts`), Add-to-Home-Screen hint on iOS.
+Mobile-only, hidden once installed, dismissible for the session (`sessionStorage`).
+
 ✅ **Leaflet / OpenStreetMap maps, both apps:** shared `LeafletMap` (status-coloured pins),
 citizen `LocationPicker` (geolocate-on-mount, draggable pin, nearest-neighbourhood
 auto-select, debounced Nominatim reverse-geocode as a display hint).
@@ -134,7 +144,8 @@ auto-select, debounced Nominatim reverse-geocode as a display hint).
 or report queueing (network required for all API/storage calls).
 
 - Console has **no PWA** (intentional — desktop tool).
-- `citizen/vercel.json` SPA rewrite present; console has none. Neither app deployed yet.
+- `citizen/vercel.json` SPA rewrite present; console has none. **Citizen deployed** to
+  `https://fixmycity-citizen.vercel.app`; console not yet deployed.
 
 ---
 
@@ -160,7 +171,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 ## What's left (prioritised backlog)
 
-- [ ] Finish + commit the Google OAuth `/auth/callback` flow (M2).
+- [x] Fix + commit the signup email-confirmation `/auth/callback` redirect (M2).
 - [ ] Ship the external image-model API and wire `_shared/image-model.ts` — unblocks both AI features (M5).
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
 - [ ] Persist console Users, Crews roster, Settings, Profile (schema addition).
@@ -169,7 +180,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
 - [ ] Offline report queueing (runtimeCaching / background sync) for the citizen PWA.
 - [ ] Test suite: Vitest unit tests + Playwright E2E.
-- [ ] Deploy both front-ends to Vercel; set up GitHub Actions CI.
+- [ ] Deploy the console to Vercel (citizen is live); set up GitHub Actions CI.
 - [ ] Refresh the stale top-level README.
 
 ---
@@ -178,12 +189,15 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Citizen PWA polish — manifest completeness, offline shell, iOS install.
-2. `LocationPicker` — geolocation + Nominatim reverse-geocoding, wired into submission.
-3. Resend transition-status emails — send helper, template, wired into `transition-report`.
-4. Leaflet maps in both apps + generated `lat`/`lng` columns on `reports`.
-5. AI duplicate detection — schema, `classify-image` + `check-duplicates`, console/citizen UI.
-6. Realtime — enabled on `notifications` + `reports`; both apps subscribe.
-7. `transition-report` state machine + console wired to Supabase.
-8. Citizen wired to Supabase — real auth, live reports, photo upload.
-9. Initial schema migration (RLS, PostGIS, pgvector) + both apps ported from prototypes.
+1. Mobile PWA install prompt on citizen login + home (Android one-tap, iOS hint).
+2. Signup email-confirmation redirect fix — in-app `/auth/callback`, implicit-flow client
+   config, `citizen/vercel.json` SPA rewrite; hosted Site URL + Resend Auth SMTP configured.
+3. Citizen PWA polish — manifest completeness, offline shell, iOS install.
+4. `LocationPicker` — geolocation + Nominatim reverse-geocoding, wired into submission.
+5. Resend transition-status emails — send helper, template, wired into `transition-report`.
+6. Leaflet maps in both apps + generated `lat`/`lng` columns on `reports`.
+7. AI duplicate detection — schema, `classify-image` + `check-duplicates`, console/citizen UI.
+8. Realtime — enabled on `notifications` + `reports`; both apps subscribe.
+9. `transition-report` state machine + console wired to Supabase.
+10. Citizen wired to Supabase — real auth, live reports, photo upload.
+11. Initial schema migration (RLS, PostGIS, pgvector) + both apps ported from prototypes.
