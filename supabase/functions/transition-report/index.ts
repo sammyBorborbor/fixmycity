@@ -67,6 +67,16 @@ interface TransitionEmailParams {
   reportUrl: string;
 }
 
+// HTML escaping: prevents XSS injection from user-provided text interpolated into email HTML
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // inline-styled HTML: email clients strip <style> blocks and external stylesheets, so every
 // rule has to be a literal style="" attribute
 function renderTransitionEmail(p: TransitionEmailParams): string {
@@ -76,14 +86,14 @@ function renderTransitionEmail(p: TransitionEmailParams): string {
     <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.02em">FixMyCity</span>
   </div>
   <div style="background:#ffffff;padding:24px;border:1px solid #E5E7EB;border-top:none">
-    <span style="display:inline-block;background:${p.badge.bg};color:${p.badge.text};font-size:12px;font-weight:600;padding:4px 10px;border-radius:9999px">${p.statusLabel}</span>
-    <p style="color:#1F2937;font-size:15px;line-height:1.5;margin:16px 0">${p.bodyText}</p>
+    <span style="display:inline-block;background:${p.badge.bg};color:${p.badge.text};font-size:12px;font-weight:600;padding:4px 10px;border-radius:9999px">${escapeHtml(p.statusLabel)}</span>
+    <p style="color:#1F2937;font-size:15px;line-height:1.5;margin:16px 0">${escapeHtml(p.bodyText)}</p>
     <div style="background:#FAFAFA;border-radius:12px;padding:16px;margin:16px 0">
-      <p style="color:#6B7280;font-size:12px;margin:0 0 4px">${p.reference}</p>
-      <p style="color:#1F2937;font-size:14px;font-weight:600;margin:0">${p.category}</p>
-      <p style="color:#6B7280;font-size:13px;margin:4px 0 0">${p.locationName}</p>
+      <p style="color:#6B7280;font-size:12px;margin:0 0 4px">${escapeHtml(p.reference)}</p>
+      <p style="color:#1F2937;font-size:14px;font-weight:600;margin:0">${escapeHtml(p.category)}</p>
+      <p style="color:#6B7280;font-size:13px;margin:4px 0 0">${escapeHtml(p.locationName)}</p>
     </div>
-    <a href="${p.reportUrl}" style="display:inline-block;background:#0B2545;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px">View in FixMyCity</a>
+    <a href="${escapeHtml(p.reportUrl)}" style="display:inline-block;background:#0B2545;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px">View in FixMyCity</a>
   </div>
   <p style="color:#6B7280;font-size:11px;text-align:center;padding:16px">FixMyCity &middot; AWMA pilot &middot; Accra</p>
 </div>`.trim();
