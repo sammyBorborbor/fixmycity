@@ -15,8 +15,8 @@ export default function Login() {
   useEffect(() => { if (user) navigate('/', { replace: true }); }, [user, navigate]);
 
   const [view, setView] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('ama.asante@gmail.com');
-  const [pw, setPw] = useState('accra2026');
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +79,7 @@ export default function Login() {
                 <label className="text-xs font-semibold text-muted uppercase tracking-wide">Email or phone</label>
                 <div className="mt-1.5 mb-3 relative">
                   <Icon name="Mail" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={email} onChange={e => setEmail(e.target.value)}
+                  <input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
                     className="w-full rounded-xl ring-1 ring-gray-300 focus:ring-2 focus:ring-ocean pl-9 pr-3 py-2.5 text-sm text-ink focus:outline-none" />
                 </div>
 

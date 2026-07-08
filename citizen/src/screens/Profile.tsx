@@ -51,7 +51,8 @@ export default function Profile() {
         ))}
       </div>
 
-      <Btn variant="danger" icon="LogOut" className="w-full mt-6" onClick={signOut}>Sign out</Btn>
+      <Btn variant="danger" icon="LogOut" className="w-full mt-6"
+        onClick={() => { if (window.confirm('Sign out of FixMyCity?')) void signOut(); }}>Sign out</Btn>
       <p className="text-center text-[11px] text-muted mt-4 font-mono">FixMyCity · v0.9 demo · AWMA pilot</p>
     </div>
   );
