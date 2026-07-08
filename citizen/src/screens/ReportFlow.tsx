@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore, CATEGORIES, COORDS } from '../lib/store.tsx';
-import type { CategoryName, LocationName } from '../lib/store.tsx';
+import type { AiSuggestion, CategoryName, LocationName } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
 import StatusPill from '../components/StatusPill.tsx';
@@ -11,7 +11,7 @@ import ProgressBar from '../components/ProgressBar.tsx';
 import MapPlaceholder from '../components/MapPlaceholder.tsx';
 
 export default function ReportFlow() {
-  const { submitReport, user } = useStore();
+  const { submitReport, classifyImage, user } = useStore();
   const navigate = useNavigate();
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -24,6 +24,9 @@ export default function ReportFlow() {
   const [newId, setNewId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestion | null>(null);
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiDismissed, setAiDismissed] = useState(false);
 
   // object URLs leak unless revoked when replaced/unmounted
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
@@ -35,19 +38,37 @@ export default function ReportFlow() {
     setPhoto(file);
     setPreview(URL.createObjectURL(file));
     e.target.value = '';
+
+    // AI feature 1: suggest a category from the photo; citizen can accept or ignore
+    setAiSuggestion(null);
+    setAiDismissed(false);
+    setAiChecking(true);
+    classifyImage(file)
+      .then(({ suggestion }) => {
+        setAiChecking(false);
+        if (suggestion) setAiSuggestion(suggestion);
+      })
+      .catch(() => setAiChecking(false)); // fail soft: no suggestion rather than an unhandled rejection
   }
 
   function clearPhoto() {
     if (preview) URL.revokeObjectURL(preview);
     setPhoto(null);
     setPreview(null);
+    setAiSuggestion(null);
+    setAiChecking(false);
+    setAiDismissed(false);
   }
 
   async function submit() {
     if (!category || !photo || busy) return;
     setBusy(true);
     setError(null);
-    const { report, error: submitError } = await submitReport({ category, location, description: desc, photo });
+    const { report, error: submitError } = await submitReport({
+      category, location, description: desc, photo,
+      aiSuggestedCategory: aiSuggestion?.category,
+      aiConfidence: aiSuggestion?.confidence,
+    });
     setBusy(false);
     if (submitError || !report) {
       setError(submitError ?? 'Could not submit the report. Please try again.');
@@ -123,6 +144,26 @@ export default function ReportFlow() {
               </div>
             )}
           </div>
+
+          {/* AI category suggestion */}
+          {aiChecking && (
+            <div className="flex items-center gap-2 text-xs text-muted bg-white rounded-xl ring-1 ring-black/5 px-3 py-2">
+              <Icon name="Sparkles" size={14} className="animate-pulse text-ocean" /> Checking photo…
+            </div>
+          )}
+          {!aiChecking && aiSuggestion && !aiDismissed && aiSuggestion.category !== category && (
+            <div className="flex items-center gap-2 bg-blue-50 ring-1 ring-blue-100 rounded-xl px-3 py-2 text-sm text-blue-800">
+              <Icon name="Sparkles" size={15} className="shrink-0" />
+              <span className="flex-1">
+                AI suggests <strong>{aiSuggestion.category}</strong> ({Math.round(aiSuggestion.confidence * 100)}% confidence)
+              </span>
+              <button onClick={() => { setCategory(aiSuggestion.category); setAiDismissed(true); }}
+                className="text-xs font-semibold text-ocean hover:underline shrink-0">Use this</button>
+              <button onClick={() => setAiDismissed(true)} className="text-blue-400 hover:text-blue-600 shrink-0">
+                <Icon name="X" size={14} />
+              </button>
+            </div>
+          )}
 
           {/* map */}
           <div>

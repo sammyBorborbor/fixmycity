@@ -1,3 +1,15 @@
+/* Base64-encode a blob for inline transport (e.g. to classify-image, before
+   the photo has been uploaded to storage). Chunked to avoid blowing the call
+   stack on `String.fromCharCode(...bytes)` for larger images. */
+export async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < buf.length; i += 0x8000) {
+    binary += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
 /* Client-side photo compression: mid-range Android on 3G is the target
    (CLAUDE.md NFR), so we downscale + re-encode to WebP before upload. */
 export async function compressImage(file: File, maxDim = 1600, quality = 0.85): Promise<Blob> {

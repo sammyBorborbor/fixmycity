@@ -207,6 +207,7 @@ export type Database = {
           actor_id: string | null
           actor_role: Database["public"]["Enums"]["user_role"] | null
           created_at: string
+          duplicate_of_report_id: string | null
           from_status: Database["public"]["Enums"]["report_status"] | null
           id: number
           note: string | null
@@ -217,6 +218,7 @@ export type Database = {
           actor_id?: string | null
           actor_role?: Database["public"]["Enums"]["user_role"] | null
           created_at?: string
+          duplicate_of_report_id?: string | null
           from_status?: Database["public"]["Enums"]["report_status"] | null
           id?: never
           note?: string | null
@@ -227,6 +229,7 @@ export type Database = {
           actor_id?: string | null
           actor_role?: Database["public"]["Enums"]["user_role"] | null
           created_at?: string
+          duplicate_of_report_id?: string | null
           from_status?: Database["public"]["Enums"]["report_status"] | null
           id?: never
           note?: string | null
@@ -239,6 +242,13 @@ export type Database = {
             columns: ["actor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "status_transitions_duplicate_of_report_id_fkey"
+            columns: ["duplicate_of_report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
             referencedColumns: ["id"]
           },
           {
@@ -255,7 +265,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_duplicate_candidates: {
+        Args: {
+          p_days?: number
+          p_limit?: number
+          p_radius_m?: number
+          p_report_id: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["report_category"]
+          created_at: string
+          distance_m: number
+          id: string
+          location_name: string
+          photo_path: string
+          reference: string
+          similarity: number
+          status: Database["public"]["Enums"]["report_status"]
+        }[]
+      }
     }
     Enums: {
       crew_department: "sanitation" | "drainage" | "electrical"
