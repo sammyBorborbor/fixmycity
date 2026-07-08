@@ -185,18 +185,6 @@ const SEED_USERS: Staff[] = [
   { id: 'u5', name: 'Efua Sarpong',  email: 'efua.sarpong@awma.gov.gh',  role: 'Officer',       unit: 'Electrical',  active: false, initials: 'ES' },
 ];
 
-/* ---- Map coordinates (percent within map frame) ------------------------ */
-export const COORDS: Record<LocationName, { x: number; y: number }> = {
-  'East Legon':                    { x: 63, y: 71 },
-  'Okponglo':                      { x: 50, y: 52 },
-  'Dzorwulu':                      { x: 47, y: 45 },
-  'Abelemkpe':                     { x: 76, y: 20 },
-  'Airport Residential Area':      { x: 38, y: 24 },
-  'Roman Ridge':                   { x: 33, y: 56 },
-  'Shiashie':                      { x: 73, y: 73 },
-  'Legon (near University of Ghana)': { x: 41, y: 67 },
-};
-
 export const CITIZEN = { name: 'Ama Asante', firstName: 'Ama', email: 'ama.asante@gmail.com' };
 
 /* ---- Date helpers ------------------------------------------------------ */

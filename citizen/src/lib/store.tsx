@@ -149,18 +149,6 @@ const DEPT_LABEL: Record<CrewRow['department'], string> = {
 };
 
 /* ---- Map coordinates ---------------------------------------------------- */
-// percent within the stylised map frame (placeholder map)
-export const COORDS: Record<LocationName, { x: number; y: number }> = {
-  'East Legon':                    { x: 63, y: 71 },
-  'Okponglo':                      { x: 50, y: 52 },
-  'Dzorwulu':                      { x: 47, y: 45 },
-  'Abelemkpe':                     { x: 76, y: 20 },
-  'Airport Residential Area':      { x: 38, y: 24 },
-  'Roman Ridge':                   { x: 33, y: 56 },
-  'Shiashie':                      { x: 73, y: 73 },
-  'Legon (near University of Ghana)': { x: 41, y: 67 },
-};
-
 // real-world coordinates submitted with a report (PostGIS geography)
 export const GEO: Record<LocationName, { lat: number; lng: number }> = {
   'East Legon':                    { lat: 5.6360, lng: -0.1610 },
