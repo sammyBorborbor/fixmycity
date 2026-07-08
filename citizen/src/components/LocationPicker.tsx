@@ -91,7 +91,10 @@ export default function LocationPicker({ location, onLocationChange, onPositionC
 
   // the citizen picked a different area from the dropdown: recenter the pin
   // to that area's centroid, unless this `location` change was itself caused
-  // by the pin moving (see skipNextRecenter above).
+  // by the pin moving (see skipNextRecenter above). Must also propagate the
+  // new position up via onPositionChange — otherwise the parent's submitted
+  // lat/lng would silently stay stale (still wherever the pin last was)
+  // while the visible pin and location_name move to the new area.
   useEffect(() => {
     if (skipNextRecenter.current) {
       skipNextRecenter.current = false;
@@ -99,6 +102,8 @@ export default function LocationPicker({ location, onLocationChange, onPositionC
     }
     const g = GEO[location];
     setPosition([g.lat, g.lng]);
+    onPositionChange(g.lat, g.lng);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts only to `location`; onPositionChange is a stable setter from the parent
   }, [location]);
 
   return (
