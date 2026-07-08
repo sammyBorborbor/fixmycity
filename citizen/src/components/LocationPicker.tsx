@@ -99,7 +99,6 @@ export default function LocationPicker({ location, onLocationChange, onPositionC
     }
     const g = GEO[location];
     setPosition([g.lat, g.lng]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally excludes movePin/onPositionChange, only reacts to `location`
   }, [location]);
 
   return (
