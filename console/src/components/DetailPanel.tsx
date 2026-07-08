@@ -7,7 +7,7 @@ import CategoryBadge from './CategoryBadge.tsx';
 import Timeline from './Timeline.tsx';
 import MapPlaceholder from './MapPlaceholder.tsx';
 import { useStore, crewName, crewById, fmtDate } from '../lib/store.tsx';
-import type { Report, TransitionAction, TransitionOpts } from '../lib/store.tsx';
+import type { DuplicateCandidate, Report, TransitionAction, TransitionOpts } from '../lib/store.tsx';
 import { signedPhotoUrl } from '../lib/supabase.ts';
 
 const REJECT_REASONS = ['Outside AWMA jurisdiction (private property)', 'Duplicate of an existing report', 'Insufficient information', 'Not a valid issue'];
@@ -38,21 +38,36 @@ function ReportPhoto({ report, className = '', style = {} }: {
 
 /* Slide-in report detail + action panel. */
 export default function DetailPanel({ report, onClose }: { report: Report | null; onClose: () => void }) {
-  const { transitionReport, crews } = useStore();
+  const { transitionReport, checkDuplicates, crews } = useStore();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [reason, setReason] = useState(REJECT_REASONS[0]);
   const [crew, setCrew] = useState(crews[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateCandidate[]>([]);
+  const [duplicateOfId, setDuplicateOfId] = useState('');
 
   // reset the inline action forms whenever a different report is opened
   const reportId = report && report.id;
   // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional form reset keyed on the open report
-  useEffect(() => { setRejectOpen(false); setAssignOpen(false); setError(null); }, [reportId]);
+  useEffect(() => { setRejectOpen(false); setAssignOpen(false); setError(null); setDuplicateOfId(''); }, [reportId]);
 
   // default the assign selector to the first available crew once crews load
   useEffect(() => { if (!crew && crews[0]) setCrew(crews[0].id); }, [crews, crew]);
+
+  // AI feature 2: fetch possible duplicates for open reports when the panel opens
+  useEffect(() => {
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset keyed on the open report, mirrors ReportPhoto's effect above
+    setDuplicates([]);
+    if (report && !['Resolved', 'Rejected'].includes(report.status)) {
+      checkDuplicates(report.id)
+        .then(({ candidates }) => { if (alive) setDuplicates(candidates ?? []); })
+        .catch(() => { /* fail soft: leave duplicates empty rather than an unhandled rejection */ });
+    }
+    return () => { alive = false; };
+  }, [reportId]); // eslint-disable-line react-hooks/exhaustive-deps -- keyed on the open report only, mirrors ReportPhoto's effect
 
   if (!report) return null;
 
@@ -115,6 +130,24 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
               <span className="text-muted">· reporter</span>
             </div>
             <p className="text-sm text-ink mt-2 bg-white rounded-xl ring-1 ring-black/5 p-3 leading-relaxed">{report.description}</p>
+            {report.aiSuggestedCategory != null && report.aiConfidence != null && (
+              <p className="text-xs text-muted mt-1.5 flex items-center gap-1">
+                <Icon name="Sparkles" size={12} /> AI suggested {report.aiSuggestedCategory} ({Math.round(report.aiConfidence * 100)}% confidence)
+              </p>
+            )}
+
+            {duplicates.length > 0 && (
+              <div className="mt-3">
+                <h3 className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Possible duplicates</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {duplicates.map(d => (
+                    <span key={d.id} className="inline-flex items-center gap-1 text-xs font-medium bg-amber-50 text-amber-800 ring-1 ring-amber-200 rounded-full px-2.5 py-1">
+                      <Icon name="Copy" size={11} /> {d.reference} · {Math.round(d.similarity * 100)}% match
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {report.crew && (
               <div className="mt-3 flex items-center gap-2 text-sm bg-blue-50 ring-1 ring-blue-100 rounded-xl px-3 py-2 text-blue-800">
@@ -137,9 +170,21 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
               <select value={reason} onChange={e => setReason(e.target.value)} className="mt-1.5 w-full rounded-xl ring-1 ring-gray-300 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ocean">
                 {REJECT_REASONS.map(r => <option key={r}>{r}</option>)}
               </select>
+              {reason === REJECT_REASONS[1] && (
+                <>
+                  <label className="text-xs font-semibold text-muted uppercase tracking-wide mt-2.5 block">Duplicate of</label>
+                  <select value={duplicateOfId} onChange={e => setDuplicateOfId(e.target.value)} className="mt-1.5 w-full rounded-xl ring-1 ring-gray-300 px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ocean">
+                    <option value="">Select the report it duplicates…</option>
+                    {duplicates.map(d => <option key={d.id} value={d.id}>{d.reference} · {Math.round(d.similarity * 100)}% match</option>)}
+                  </select>
+                </>
+              )}
               <div className="flex gap-2 mt-3">
                 <Btn variant="outline" className="flex-1" onClick={() => setRejectOpen(false)}>Cancel</Btn>
-                <Btn variant="danger" className="flex-1" icon="Ban" disabled={busy} onClick={() => act('reject', { reason })}>Confirm reject</Btn>
+                <Btn variant="danger" className="flex-1" icon="Ban" disabled={busy || (reason === REJECT_REASONS[1] && !duplicateOfId)}
+                  onClick={() => act('reject', { reason, duplicateOfId: reason === REJECT_REASONS[1] ? duplicateOfId : undefined })}>
+                  Confirm reject
+                </Btn>
               </div>
             </div>
           ) : assignOpen ? (

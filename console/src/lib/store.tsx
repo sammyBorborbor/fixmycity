@@ -56,7 +56,20 @@ export interface Report {
   photoPath?: string | null;  // storage path in the report-photos bucket
   reporterName?: string;      // reporter's display name
   rejectReason?: string;
+  aiSuggestedCategory?: CategoryName | null;
+  aiConfidence?: number | null;
   timeline: TimelineEvent[];
+}
+
+export interface DuplicateCandidate {
+  id: string;
+  reference: string;
+  category: CategoryName;
+  locationName: LocationName;
+  status: StatusName;
+  photoPath: string | null;
+  similarity: number;
+  distanceM: number;
 }
 
 export interface Crew {
@@ -89,7 +102,7 @@ export interface Operator {
   initials: string;
 }
 
-export interface TransitionOpts { note?: string; crewId?: string; reason?: string }
+export interface TransitionOpts { note?: string; crewId?: string; reason?: string; duplicateOfId?: string }
 
 export interface StoreValue {
   authReady: boolean;
@@ -100,6 +113,7 @@ export interface StoreValue {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   transitionReport: (reportId: string, action: TransitionAction, opts?: TransitionOpts) => Promise<{ error?: string }>;
+  checkDuplicates: (reportId: string) => Promise<{ candidates?: DuplicateCandidate[]; error?: string }>;
   addCrew: (c: Omit<Crew, 'id'>) => void;
   toggleCrewAvailability: (id: string) => void;
   addMember: (id: string, name: string) => void;
@@ -261,6 +275,8 @@ function mapReport(
     photoPath: row.photo_urls[0] ?? null,
     reporterName: (row.reporter_id && names.get(row.reporter_id)) || 'Resident',
     rejectReason: rejected?.note ?? undefined,
+    aiSuggestedCategory: row.ai_suggested_category ? DB_TO_CATEGORY[row.ai_suggested_category] : null,
+    aiConfidence: row.ai_confidence,
     timeline: transitions.map(t => ({
       status: DB_TO_STATUS[t.to_status],
       timestamp: t.created_at,
@@ -311,7 +327,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const { data: reportRows } = await supabase
       .from('reports')
-      .select('*, status_transitions(*)')
+      .select('*, status_transitions!status_transitions_report_id_fkey(*)')
       .order('created_at', { ascending: false });
     setReports((reportRows ?? []).map(r => mapReport(r, names)));
   }, []);
@@ -395,6 +411,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         crew_id: opts.crewId,
         reason: opts.reason,
         note: opts.note,
+        duplicate_of_report_id: opts.duplicateOfId,
       },
     });
     if (error) {
@@ -407,6 +424,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await loadData();
     return {};
   }, [reports, loadData]);
+
+  // AI feature 2 (CLAUDE.md): PostGIS proximity+time filter, then pgvector
+  // cosine similarity, so the detail panel can show "possible duplicate of
+  // FMC-..." chips. Read-only — unlike transitionReport, does not reload data.
+  const checkDuplicates = useCallback(async (reportId: string): Promise<{ candidates?: DuplicateCandidate[]; error?: string }> => {
+    const target = reports.find(r => r.id === reportId);
+    if (!target?.uuid) return { error: 'Report not found.' };
+    const { data, error } = await supabase.functions.invoke('check-duplicates', {
+      body: { report_id: target.uuid },
+    });
+    if (error) {
+      let msg = 'Could not check for duplicates.';
+      if (error instanceof FunctionsHttpError) {
+        try { const b = await error.context.json(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+      } else if (error instanceof Error) { msg = error.message; }
+      return { error: msg };
+    }
+    type CandidateRow = {
+      id: string; reference: string; category: ReportRow['category']; location_name: string;
+      status: ReportRow['status']; photo_path: string | null; similarity: number; distance_m: number;
+    };
+    const candidates: DuplicateCandidate[] = ((data?.candidates ?? []) as CandidateRow[]).map(c => ({
+      id: c.id,
+      reference: c.reference,
+      category: DB_TO_CATEGORY[c.category],
+      locationName: c.location_name as LocationName,
+      status: DB_TO_STATUS[c.status],
+      photoPath: c.photo_path,
+      similarity: c.similarity,
+      distanceM: c.distance_m,
+    }));
+    return { candidates };
+  }, [reports]);
 
   /* ---- Crew actions (demo-only, session-local; assignment uses live crews) ---- */
   const addCrew = useCallback((c: Omit<Crew, 'id'>) => {
@@ -452,10 +502,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, staff,
     signIn, signOut,
-    transitionReport,
+    transitionReport, checkDuplicates,
     addCrew, toggleCrewAvailability, addMember, removeMember, setLead,
     inviteUser, setUserRole, setUserStatus,
-  }), [authReady, user, reports, crews, staff, signIn, signOut, transitionReport,
+  }), [authReady, user, reports, crews, staff, signIn, signOut, transitionReport, checkDuplicates,
        addCrew, toggleCrewAvailability, addMember, removeMember, setLead,
        inviteUser, setUserRole, setUserStatus]);
 
