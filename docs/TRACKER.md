@@ -97,6 +97,14 @@ in-app reset flow is not wired yet (see backlog).
 - Each transition validates legality, writes exactly one audit row, reverts status on audit
   failure, returns 400/403/409 appropriately.
 
+✅ **Citizen cancellation** (`cancel-report` edge function): a reporter may withdraw their own
+report while it is still `submitted` (before acknowledgement). Implemented as a hard delete —
+removes the stored photos, then deletes the report (FK cascade clears its transitions +
+notifications). Note: this deviates from the strict append-only/closed-loop ideal (the record
+is removed, not retained as a terminal state) — chosen deliberately as a lightweight withdrawal.
+Required relaxing the `status_transitions` append-only trigger to UPDATE-only so the cascade
+delete can proceed (content stays immutable; no client DELETE policy exists).
+
 ✅ **Console wired to live data:** Inbox (filter chips + table), slide-in `DetailPanel`
 (status-gated action bar), Assignments, MapView, Analytics, Audit Log — all computed from
 the live `reports` + joined `status_transitions`.
@@ -203,26 +211,31 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Multiple report photos (1–5) with camera + gallery capture — `submit-report` now takes
+1. Citizen report cancellation — a reporter can withdraw their own report while still
+   Submitted (before acknowledgement) via the new `cancel-report` edge function (hard delete:
+   photos + report + cascaded transitions/notifications). Relaxed the `status_transitions`
+   append-only trigger to UPDATE-only so the cascade can proceed. Cancel button on the report
+   detail screen.
+2. Multiple report photos (1–5) with camera + gallery capture — `submit-report` now takes
    `photo_paths[]` (validates 1–5, ownership, existence; embeds the first photo); citizen
    picker supports camera and multi-select gallery with removable thumbnails; detail views
    show a main image + thumbnail strip (both apps); list cards show a first-photo thumbnail.
    DB `photo_urls text[]` already supported arrays — no migration.
-2. Branded auth email templates — `supabase/templates/confirmation.html` + `recovery.html`
+3. Branded auth email templates — `supabase/templates/confirmation.html` + `recovery.html`
    (table-based, gold CTA), wired in `config.toml` and applied to the hosted project.
-3. Fix missing Blocked Drain category icon in both apps — lucide renamed `Waves`, so the
+4. Fix missing Blocked Drain category icon in both apps — lucide renamed `Waves`, so the
    `Icon` wrapper fell back to a blank box; switched to `WavesHorizontal`.
-4. Citizen Home — empty state for "Your recent reports" (icon + message) instead of a blank
+5. Citizen Home — empty state for "Your recent reports" (icon + message) instead of a blank
    gap when the user has no reports; "View all" hidden when empty.
-5. Mobile PWA install prompt on citizen login + home (Android one-tap, iOS hint).
-6. Signup email-confirmation redirect fix — in-app `/auth/callback`, implicit-flow client
+6. Mobile PWA install prompt on citizen login + home (Android one-tap, iOS hint).
+7. Signup email-confirmation redirect fix — in-app `/auth/callback`, implicit-flow client
    config, `citizen/vercel.json` SPA rewrite; hosted Site URL + Resend Auth SMTP configured.
-7. Citizen PWA polish — manifest completeness, offline shell, iOS install.
-8. `LocationPicker` — geolocation + Nominatim reverse-geocoding, wired into submission.
-9. Resend transition-status emails — send helper, template, wired into `transition-report`.
-10. Leaflet maps in both apps + generated `lat`/`lng` columns on `reports`.
-11. AI duplicate detection — schema, `classify-image` + `check-duplicates`, console/citizen UI.
-12. Realtime — enabled on `notifications` + `reports`; both apps subscribe.
-13. `transition-report` state machine + console wired to Supabase.
-14. Citizen wired to Supabase — real auth, live reports, photo upload.
-15. Initial schema migration (RLS, PostGIS, pgvector) + both apps ported from prototypes.
+8. Citizen PWA polish — manifest completeness, offline shell, iOS install.
+9. `LocationPicker` — geolocation + Nominatim reverse-geocoding, wired into submission.
+10. Resend transition-status emails — send helper, template, wired into `transition-report`.
+11. Leaflet maps in both apps + generated `lat`/`lng` columns on `reports`.
+12. AI duplicate detection — schema, `classify-image` + `check-duplicates`, console/citizen UI.
+13. Realtime — enabled on `notifications` + `reports`; both apps subscribe.
+14. `transition-report` state machine + console wired to Supabase.
+15. Citizen wired to Supabase — real auth, live reports, photo upload.
+16. Initial schema migration (RLS, PostGIS, pgvector) + both apps ported from prototypes.

@@ -105,6 +105,7 @@ export interface StoreValue {
   submitReport: (draft: ReportDraft) => Promise<{ report?: Report; error?: string }>;
   classifyImage: (photo: File) => Promise<{ suggestion?: AiSuggestion; error?: string }>;
   reopenReport: (id: string) => Promise<{ error?: string }>;
+  cancelReport: (id: string) => Promise<{ error?: string }>;
   markAllRead: () => Promise<void>;
 }
 
@@ -452,6 +453,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {};
   }, [reports, refresh]);
 
+  // withdraw an own report while still Submitted (before acknowledgement) —
+  // a hard delete via the cancel-report edge function
+  const cancelReport = useCallback(async (id: string): Promise<{ error?: string }> => {
+    const target = reports.find(r => r.id === id);
+    if (!target?.uuid) return { error: 'Report not found.' };
+    const { error } = await supabase.functions.invoke('cancel-report', {
+      body: { report_id: target.uuid },
+    });
+    if (error) return { error: await describeError(error) };
+    setReports(prev => prev.filter(r => r.id !== id));
+    void refresh();
+    return {};
+  }, [reports, refresh]);
+
   const markAllRead = useCallback(async () => {
     if (!uid) return;
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -462,9 +477,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, notifications, unreadCount,
-    signIn, signUp, signOut, submitReport, classifyImage, reopenReport, markAllRead,
+    signIn, signUp, signOut, submitReport, classifyImage, reopenReport, cancelReport, markAllRead,
   }), [authReady, user, reports, crews, notifications, unreadCount,
-       signIn, signUp, signOut, submitReport, classifyImage, reopenReport, markAllRead]);
+       signIn, signUp, signOut, submitReport, classifyImage, reopenReport, cancelReport, markAllRead]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
