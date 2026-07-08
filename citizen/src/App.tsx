@@ -6,6 +6,7 @@ import BottomNav from './components/BottomNav.tsx';
 
 import Login from './screens/Login.tsx';
 import AuthCallback from './screens/AuthCallback.tsx';
+import ResetPassword from './screens/ResetPassword.tsx';
 import Home from './screens/Home.tsx';
 import ReportFlow from './screens/ReportFlow.tsx';
 import MyReports from './screens/MyReports.tsx';
@@ -51,6 +52,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route path="/" element={<Home />} />
           <Route path="/report" element={<ReportFlow />} />

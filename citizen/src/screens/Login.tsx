@@ -8,13 +8,13 @@ import InstallPrompt from '../components/InstallPrompt.tsx';
 
 /* Login / Sign-in — its own minimal status bar, no bottom nav. */
 export default function Login() {
-  const { user, signIn, signUp } = useStore();
+  const { user, signIn, signUp, sendPasswordReset } = useStore();
   const navigate = useNavigate();
 
   // already signed in? bounce to home
   useEffect(() => { if (user) navigate('/', { replace: true }); }, [user, navigate]);
 
-  const [view, setView] = useState<'signin' | 'signup'>('signin');
+  const [view, setView] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [show, setShow] = useState(false);
@@ -52,6 +52,18 @@ export default function Login() {
       return;
     }
     navigate('/', { replace: true });
+  }
+
+  async function submitForgot(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setError(null); setInfo(null);
+    const { error: err } = await sendPasswordReset(email);
+    setBusy(false);
+    if (err) { setError(err); return; }
+    setView('signin');
+    setInfo('If an account exists for that email, we’ve sent a link to reset your password.');
+    setPw('');
   }
 
   const canCreate = name.trim() && signupEmail.trim() && signupPw.length >= 6 && agree;
@@ -94,7 +106,7 @@ export default function Login() {
                 </div>
 
                 <div className="flex justify-end mt-2">
-                  <button type="button" className="text-xs font-semibold text-ocean">Forgot password?</button>
+                  <button type="button" onClick={() => { setView('forgot'); setError(null); setInfo(null); }} className="text-xs font-semibold text-ocean">Forgot password?</button>
                 </div>
 
                 {error && <p className="text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mt-3">{error}</p>}
@@ -104,7 +116,7 @@ export default function Login() {
                   {busy ? 'Signing in…' : 'Sign in'}
                 </Btn>
               </form>
-            ) : (
+            ) : view === 'signup' ? (
               <form onSubmit={submitSignUp} className="bg-white rounded-xl ring-1 ring-black/5 shadow-lg p-5">
                 <h2 className="font-bold text-navy text-lg">Create your account</h2>
                 <p className="text-sm text-muted mb-4">Join FixMyCity to report and track issues</p>
@@ -146,13 +158,33 @@ export default function Login() {
                 </Btn>
                 {!canCreate && <p className="text-center text-[11px] text-muted mt-2">Fill in your details and accept the terms to continue</p>}
               </form>
+            ) : (
+              <form onSubmit={submitForgot} className="bg-white rounded-xl ring-1 ring-black/5 shadow-lg p-5">
+                <h2 className="font-bold text-navy text-lg">Reset your password</h2>
+                <p className="text-sm text-muted mb-4">Enter your account email and we’ll send you a link to choose a new password.</p>
+
+                <label className="text-xs font-semibold text-muted uppercase tracking-wide">Email</label>
+                <div className="mt-1.5 relative">
+                  <Icon name="Mail" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                    className="w-full rounded-xl ring-1 ring-gray-300 focus:ring-2 focus:ring-ocean pl-9 pr-3 py-2.5 text-sm text-ink focus:outline-none" />
+                </div>
+
+                {error && <p className="text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mt-3">{error}</p>}
+
+                <Btn size="lg" className="w-full mt-4" icon="Mail" type="submit" disabled={!email.trim() || busy}>
+                  {busy ? 'Sending…' : 'Send reset link'}
+                </Btn>
+              </form>
             )}
 
             <p className="text-center text-sm text-muted mt-5">
               {view === 'signin' ? (
                 <>New to FixMyCity? <button onClick={() => { setView('signup'); setError(null); setInfo(null); }} className="font-semibold text-ocean">Create account</button></>
-              ) : (
+              ) : view === 'signup' ? (
                 <>Already have an account? <button onClick={() => { setView('signin'); setError(null); setInfo(null); }} className="font-semibold text-ocean">Sign in</button></>
+              ) : (
+                <>Remembered it? <button onClick={() => { setView('signin'); setError(null); setInfo(null); }} className="font-semibold text-ocean">Back to sign in</button></>
               )}
             </p>
 

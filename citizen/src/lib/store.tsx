@@ -102,6 +102,8 @@ export interface StoreValue {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error?: string; pendingConfirmation?: boolean }>;
   signOut: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<{ error?: string }>;
+  updatePassword: (password: string) => Promise<{ error?: string }>;
   submitReport: (draft: ReportDraft) => Promise<{ report?: Report; error?: string }>;
   classifyImage: (photo: File) => Promise<{ suggestion?: AiSuggestion; error?: string }>;
   reopenReport: (id: string) => Promise<{ error?: string }>;
@@ -381,6 +383,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  /* Send the password-reset email. The recovery link lands directly on
+     /reset-password, where the recovered session lets the user set a new one. */
+  const sendPasswordReset = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    return error ? { error: error.message } : {};
+  }, []);
+
+  /* Set a new password for the current (recovery or signed-in) session. */
+  const updatePassword = useCallback(async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    return error ? { error: error.message } : {};
+  }, []);
+
   const submitReport = useCallback(async (draft: ReportDraft): Promise<{ report?: Report; error?: string }> => {
     if (!uid || !user) return { error: 'You are signed out. Please sign in again.' };
     try {
@@ -477,9 +494,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, notifications, unreadCount,
-    signIn, signUp, signOut, submitReport, classifyImage, reopenReport, cancelReport, markAllRead,
+    signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, classifyImage, reopenReport, cancelReport, markAllRead,
   }), [authReady, user, reports, crews, notifications, unreadCount,
-       signIn, signUp, signOut, submitReport, classifyImage, reopenReport, cancelReport, markAllRead]);
+       signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, classifyImage, reopenReport, cancelReport, markAllRead]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
