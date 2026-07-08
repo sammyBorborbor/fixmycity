@@ -100,11 +100,11 @@ flow).
      override via the dropdown; doing so re-centers the pin to that area's centroid
      (the existing one-way dropdown-drives-map relationship becomes bidirectional).
    - Reverse-geocode the position via Nominatim's `/reverse` endpoint (debounced;
-     request identified with a descriptive custom header, e.g. `User-Agent:
-     FixMyCity-AWMA/1.0 (capstone pilot)`, per Nominatim's usage policy; stale
-     in-flight requests ignored if the pin moves again before a response arrives) and
-     show the result as a small, ephemeral text hint below the map (e.g. "Near: 12
-     Legon Road, Accra").
+     browser `fetch()` cannot set a custom `User-Agent` — Nominatim's usage policy
+     accepts this for genuine browser-originated requests, since the browser's own UA
+     and `Referer` already identify the site; stale in-flight requests ignored if the
+     pin moves again before a response arrives) and show the result as a small,
+     ephemeral text hint below the map (e.g. "Near: 12 Legon Road, Accra").
      **Display only — never persisted to the database.** On failure, timeout, or
      rate-limiting, the hint simply stays blank; this never blocks map interaction or
      report submission.
