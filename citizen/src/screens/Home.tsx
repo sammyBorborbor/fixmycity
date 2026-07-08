@@ -63,11 +63,23 @@ export default function Home() {
       {/* recent */}
       <div className="flex items-center justify-between mt-6 mb-2">
         <h2 className="font-bold text-navy">Your recent reports</h2>
-        <button onClick={() => navigate('/reports')} className="text-xs font-semibold text-ocean">View all</button>
+        {recent.length > 0 && (
+          <button onClick={() => navigate('/reports')} className="text-xs font-semibold text-ocean">View all</button>
+        )}
       </div>
-      <div className="flex flex-col gap-2.5">
-        {recent.map(r => <ReportCard key={r.id} r={r} unread={false} onClick={() => navigate('/reports/' + r.id)} />)}
-      </div>
+      {recent.length === 0 ? (
+        <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm px-4 py-8 flex flex-col items-center text-center">
+          <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-black/5 text-muted mb-3">
+            <Icon name="ClipboardList" size={22} />
+          </span>
+          <p className="font-semibold text-navy">No reports yet</p>
+          <p className="text-sm text-muted mt-1 max-w-[15rem]">Reports you submit will appear here.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {recent.map(r => <ReportCard key={r.id} r={r} unread={false} onClick={() => navigate('/reports/' + r.id)} />)}
+        </div>
+      )}
     </div>
   );
 }
