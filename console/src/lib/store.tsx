@@ -350,6 +350,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, [applySession]);
 
+  /* Realtime: any report change (new citizen submission, reopen, or another
+     operator's action) refetches the live data so the Inbox/Map/Assignments stay
+     current without a reload. Staff RLS delivers all reports. Debounced. */
+  useEffect(() => {
+    if (!user) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const channel = supabase
+      .channel('console-reports')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'reports' },
+        () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { void loadData(); }, 300);
+        })
+      .subscribe();
+    return () => { clearTimeout(timer); void supabase.removeChannel(channel); };
+  }, [user, loadData]);
+
   /* ---- Auth ---- */
   const signIn = useCallback(async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
