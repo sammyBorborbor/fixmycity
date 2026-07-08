@@ -71,6 +71,8 @@ export interface Crew {
 export interface ReportDraft {
   category: CategoryName;
   location: LocationName;
+  lat: number;
+  lng: number;
   description: string;
   photo: File;
   aiSuggestedCategory?: CategoryName;
@@ -397,13 +399,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .upload(path, blob, { contentType: 'image/webp' });
       if (uploadErr) return { error: uploadErr.message };
 
-      const geo = GEO[draft.location];
       const { data, error } = await supabase.functions.invoke('submit-report', {
         body: {
           category: CATEGORY_TO_DB[draft.category],
           location_name: draft.location,
-          lat: geo.lat,
-          lng: geo.lng,
+          lat: draft.lat,
+          lng: draft.lng,
           description: draft.description,
           photo_path: path,
           ai_suggested_category: draft.aiSuggestedCategory ? CATEGORY_TO_DB[draft.aiSuggestedCategory] : undefined,

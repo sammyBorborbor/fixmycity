@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useStore, CATEGORIES, COORDS } from '../lib/store.tsx';
+import { useStore, CATEGORIES, GEO } from '../lib/store.tsx';
 import type { AiSuggestion, CategoryName, LocationName } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
 import StatusPill from '../components/StatusPill.tsx';
 import CategoryBadge from '../components/CategoryBadge.tsx';
 import ProgressBar from '../components/ProgressBar.tsx';
-import MapPlaceholder from '../components/MapPlaceholder.tsx';
+import LocationPicker from '../components/LocationPicker.tsx';
 
 export default function ReportFlow() {
   const { submitReport, classifyImage, user } = useStore();
@@ -21,6 +21,7 @@ export default function ReportFlow() {
   const [preview, setPreview] = useState<string | null>(null);
   const [desc, setDesc] = useState('');
   const [location, setLocation] = useState<LocationName>('Okponglo');
+  const [position, setPosition] = useState(() => GEO['Okponglo']);
   const [newId, setNewId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export default function ReportFlow() {
     setBusy(true);
     setError(null);
     const { report, error: submitError } = await submitReport({
-      category, location, description: desc, photo,
+      category, location, lat: position.lat, lng: position.lng, description: desc, photo,
       aiSuggestedCategory: aiSuggestion?.category,
       aiConfidence: aiSuggestion?.confidence,
     });
@@ -165,20 +166,25 @@ export default function ReportFlow() {
             </div>
           )}
 
-          {/* map */}
+          {/* location */}
           <div>
             <label className="text-xs font-semibold text-muted uppercase tracking-wide">Location</label>
-            <div className="mt-1.5 relative rounded-xl overflow-hidden ring-1 ring-black/5">
-              <MapPlaceholder reports={[{ id: 'new', category, location, status: 'Submitted', description: '', crew: null, hasPhoto: !!photo, timeline: [] }]} height={130} rounded="" activeId="new" />
-              <div className="absolute inset-x-0 bottom-0 bg-white/95 backdrop-blur px-3 py-2 flex items-center gap-2">
-                <Icon name="MapPin" size={15} className="text-ocean" />
-                <select value={location} onChange={e => setLocation(e.target.value as LocationName)}
-                  className="flex-1 bg-transparent text-sm font-medium text-ink focus:outline-none">
-                  {Object.keys(COORDS).map(l => <option key={l}>{l}</option>)}
-                </select>
-              </div>
+            <div className="mt-1.5">
+              <LocationPicker
+                location={location}
+                onLocationChange={setLocation}
+                onPositionChange={(lat, lng) => setPosition({ lat, lng })}
+                height={160}
+              />
             </div>
-            <p className="text-[11px] text-muted mt-1">Pin auto-detected near Okponglo. Adjust if needed.</p>
+            <div className="mt-1.5 flex items-center gap-2 bg-white rounded-xl ring-1 ring-black/5 px-3 py-2">
+              <Icon name="MapPin" size={15} className="text-ocean shrink-0" />
+              <select value={location} onChange={e => setLocation(e.target.value as LocationName)}
+                className="flex-1 bg-transparent text-sm font-medium text-ink focus:outline-none">
+                {Object.keys(GEO).map(l => <option key={l}>{l}</option>)}
+              </select>
+            </div>
+            <p className="text-[11px] text-muted mt-1">Drag the pin or tap the map to set a precise spot — we'll match the nearest area automatically.</p>
           </div>
 
           {/* description */}
