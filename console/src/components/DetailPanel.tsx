@@ -5,7 +5,7 @@ import Btn from './Btn.tsx';
 import StatusPill from './StatusPill.tsx';
 import CategoryBadge from './CategoryBadge.tsx';
 import Timeline from './Timeline.tsx';
-import MapPlaceholder from './MapPlaceholder.tsx';
+import LeafletMap from './LeafletMap.tsx';
 import { useStore, crewName, crewById, fmtDate } from '../lib/store.tsx';
 import type { DuplicateCandidate, Report, TransitionAction, TransitionOpts } from '../lib/store.tsx';
 import { signedPhotoUrl } from '../lib/supabase.ts';
@@ -119,7 +119,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
             </div>
 
             {/* mini map */}
-            <div className="mt-4"><MapPlaceholder reports={[report]} height={140} activeId={report.id} /></div>
+            <div className="mt-4"><LeafletMap reports={[report]} height={140} activeId={report.id} /></div>
 
             {/* reporter + description */}
             <div className="mt-4 flex items-center gap-2 text-sm">
