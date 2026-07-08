@@ -48,7 +48,10 @@ Deno.serve(async (req) => {
   const { data: { user } } = await userClient.auth.getUser();
   if (!user) return json({ error: 'not signed in' }, 401);
 
-  let body: { report_id?: string; action?: string; note?: string; crew_id?: string; reason?: string };
+  let body: {
+    report_id?: string; action?: string; note?: string; crew_id?: string; reason?: string;
+    duplicate_of_report_id?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -74,6 +77,7 @@ Deno.serve(async (req) => {
   // resolve a transition: validate legality, then apply status + audit + notify atomically
   async function apply(
     from: Status, to: Status, actorRole: string, extra: Record<string, unknown> = {}, noteText: string | null = null,
+    duplicateOfReportId: string | null = null,
   ) {
     const { error: updateErr } = await admin.from('reports').update({ status: to, ...extra }).eq('id', reportId);
     if (updateErr) return json({ error: updateErr.message }, 500);
@@ -81,6 +85,7 @@ Deno.serve(async (req) => {
     const { error: auditErr } = await admin.from('status_transitions').insert({
       report_id: reportId, from_status: from, to_status: to,
       actor_id: user!.id, actor_role: actorRole, note: noteText,
+      duplicate_of_report_id: duplicateOfReportId,
     });
     if (auditErr) {
       // audit row failed: revert so status and audit log never disagree
@@ -144,7 +149,13 @@ Deno.serve(async (req) => {
       if (!isStaff) return json({ error: 'staff only' }, 403);
       if (status === 'resolved' || status === 'rejected') return json({ error: 'this report cannot be rejected in its current state' }, 409);
       if (!reason) return json({ error: 'a reason is required to reject' }, 400);
-      return apply(status, 'rejected', role!, {}, reason);
+      let duplicateOfReportId: string | null = null;
+      if (typeof body.duplicate_of_report_id === 'string') {
+        const { data: dupTarget } = await admin.from('reports').select('id').eq('id', body.duplicate_of_report_id).single();
+        if (!dupTarget) return json({ error: 'duplicate target report not found' }, 404);
+        duplicateOfReportId = body.duplicate_of_report_id;
+      }
+      return apply(status, 'rejected', role!, {}, reason, duplicateOfReportId);
     }
     case 'start': {
       if (!isStaff) return json({ error: 'staff only' }, 403);
