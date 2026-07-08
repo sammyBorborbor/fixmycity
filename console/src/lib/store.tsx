@@ -49,6 +49,8 @@ export interface Report {
   uuid?: string;              // database row id (used for API calls)
   category: CategoryName;
   location: LocationName;
+  lat: number;
+  lng: number;
   description: string;
   status: StatusName;
   crew: string | null;        // assigned crew id
@@ -268,6 +270,8 @@ function mapReport(
     uuid: row.id,
     category: DB_TO_CATEGORY[row.category],
     location: row.location_name as LocationName,
+    lat: row.lat,
+    lng: row.lng,
     description: row.description,
     status: DB_TO_STATUS[row.status],
     crew: row.assigned_crew_id,

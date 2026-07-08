@@ -142,6 +142,8 @@ export type Database = {
           description: string
           embedding: string | null
           id: string
+          lat: number
+          lng: number
           location: unknown
           location_name: string
           photo_urls: string[]
@@ -160,6 +162,8 @@ export type Database = {
           description?: string
           embedding?: string | null
           id?: string
+          lat?: never
+          lng?: never
           location: unknown
           location_name: string
           photo_urls?: string[]
@@ -178,6 +182,8 @@ export type Database = {
           description?: string
           embedding?: string | null
           id?: string
+          lat?: never
+          lng?: never
           location?: unknown
           location_name?: string
           photo_urls?: string[]
