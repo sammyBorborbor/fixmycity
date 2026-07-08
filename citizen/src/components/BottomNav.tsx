@@ -17,7 +17,7 @@ export default function BottomNav() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   return (
-    <div className="shrink-0 bg-white border-t border-gray-200 grid grid-cols-5 px-1 pt-1.5 pb-2">
+    <div className="shrink-0 bg-white border-t border-gray-200 grid grid-cols-5 px-1 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
       {TABS.map(t => {
         const active = pathname === t.path;
         const isReport = t.id === 'report';

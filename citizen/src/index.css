@@ -17,6 +17,13 @@
 html, body { background: #EDEFF2; }
 * { -webkit-font-smoothing: antialiased; }
 
+/* Lock the document to the viewport so only the in-app content area scrolls and
+   the bottom nav stays pinned. dvh tracks the dynamic (visual) viewport; the
+   height:100% rule is the fallback where dvh is unsupported. */
+html, body, #root { height: 100%; }
+html, body { overflow: hidden; overscroll-behavior: none; }
+#root { height: 100dvh; }
+
 /* hide scrollbars but keep scroll */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

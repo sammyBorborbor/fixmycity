@@ -47,7 +47,7 @@ function AppShell() {
    max-width 420px on wider screens. */
 export default function App() {
   return (
-    <div className="mx-auto w-full max-w-[420px] h-[100dvh] flex flex-col overflow-hidden bg-paper shadow-xl">
+    <div className="mx-auto w-full max-w-[420px] h-full flex flex-col overflow-hidden bg-paper shadow-xl">
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
