@@ -186,6 +186,29 @@ Deno.serve(async (req) => {
     });
     if (notifyErr) console.error('notification insert failed:', notifyErr.message);
 
+    // email the reporter too (FR-070/071) — non-fatal, mirrors the notifyErr handling above
+    try {
+      const { data: authUser } = await admin.auth.admin.getUserById(report!.reporter_id);
+      const toEmail = authUser?.user?.email;
+      if (toEmail) {
+        const label = STATUS_LABEL[to];
+        const subject = `FixMyCity — ${label} · ${report!.reference}`;
+        const bodyText = notifyBody(to, crewName, noteText);
+        const params: TransitionEmailParams = {
+          statusLabel: label,
+          badge: STATUS_BADGE[to],
+          bodyText,
+          reference: report!.reference,
+          category: CATEGORY_LABEL[report!.category] ?? report!.category,
+          locationName: report!.location_name,
+          reportUrl: `https://fixmycity-citizen.vercel.app/reports/${reportId}`,
+        };
+        await sendTransitionEmail(toEmail, subject, renderTransitionEmail(params), renderTransitionEmailText(params));
+      }
+    } catch (e) {
+      console.error('transition email failed:', e);
+    }
+
     const { data: updated } = await admin.from('reports').select('*').eq('id', reportId).single();
     return json({ report: updated });
   }
