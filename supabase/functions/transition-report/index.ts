@@ -36,6 +36,63 @@ function notifyBody(status: Status, crewName: string | null, reason: string | nu
   }
 }
 
+// human-readable labels + inline-email-safe colors, mirroring citizen/src/lib/store.tsx's
+// STATUS/DB_TO_CATEGORY consts. Duplicated here (not imported) since edge functions are
+// self-contained Deno files that can't import client app code — same convention documented
+// in _shared/image-model.ts.
+const STATUS_LABEL: Record<Status, string> = {
+  submitted: 'Submitted', acknowledged: 'Acknowledged', assigned: 'Assigned',
+  in_progress: 'In Progress', resolved: 'Resolved', rejected: 'Rejected', reopened: 'Reopened',
+};
+const STATUS_BADGE: Record<Status, { bg: string; text: string }> = {
+  submitted:    { bg: '#F3F4F6', text: '#4B5563' },
+  acknowledged: { bg: '#EFF6FF', text: '#1D4ED8' },
+  assigned:     { bg: '#DBEAFE', text: '#1E3A8A' },
+  in_progress:  { bg: '#FFFBEB', text: '#92400E' },
+  resolved:     { bg: '#F0FDF4', text: '#15803D' },
+  rejected:     { bg: '#FEF2F2', text: '#B91C1C' },
+  reopened:     { bg: '#FFF7ED', text: '#C2410C' },
+};
+const CATEGORY_LABEL: Record<string, string> = {
+  dumping: 'Illegal Dumping', drain: 'Blocked Drain', streetlight: 'Broken Streetlight',
+};
+
+interface TransitionEmailParams {
+  statusLabel: string;
+  badge: { bg: string; text: string };
+  bodyText: string;
+  reference: string;
+  category: string;
+  locationName: string;
+  reportUrl: string;
+}
+
+// inline-styled HTML: email clients strip <style> blocks and external stylesheets, so every
+// rule has to be a literal style="" attribute
+function renderTransitionEmail(p: TransitionEmailParams): string {
+  return `
+<div style="font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;background:#FAFAFA">
+  <div style="background:#0B2545;padding:24px;text-align:center">
+    <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.02em">FixMyCity</span>
+  </div>
+  <div style="background:#ffffff;padding:24px;border:1px solid #E5E7EB;border-top:none">
+    <span style="display:inline-block;background:${p.badge.bg};color:${p.badge.text};font-size:12px;font-weight:600;padding:4px 10px;border-radius:9999px">${p.statusLabel}</span>
+    <p style="color:#1F2937;font-size:15px;line-height:1.5;margin:16px 0">${p.bodyText}</p>
+    <div style="background:#FAFAFA;border-radius:12px;padding:16px;margin:16px 0">
+      <p style="color:#6B7280;font-size:12px;margin:0 0 4px">${p.reference}</p>
+      <p style="color:#1F2937;font-size:14px;font-weight:600;margin:0">${p.category}</p>
+      <p style="color:#6B7280;font-size:13px;margin:4px 0 0">${p.locationName}</p>
+    </div>
+    <a href="${p.reportUrl}" style="display:inline-block;background:#0B2545;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:10px 20px;border-radius:8px">View in FixMyCity</a>
+  </div>
+  <p style="color:#6B7280;font-size:11px;text-align:center;padding:16px">FixMyCity &middot; AWMA pilot &middot; Accra</p>
+</div>`.trim();
+}
+
+function renderTransitionEmailText(p: TransitionEmailParams): string {
+  return `FixMyCity — ${p.statusLabel}\n\n${p.bodyText}\n\n${p.reference} · ${p.category} · ${p.locationName}\n\nView in FixMyCity: ${p.reportUrl}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
