@@ -103,6 +103,17 @@ function renderTransitionEmailText(p: TransitionEmailParams): string {
   return `FixMyCity — ${p.statusLabel}\n\n${p.bodyText}\n\n${p.reference} · ${p.category} · ${p.locationName}\n\nView in FixMyCity: ${p.reportUrl}`;
 }
 
+async function sendTransitionEmail(to: string, subject: string, html: string, text: string) {
+  const apiKey = Deno.env.get('RESEND_API_KEY');
+  if (!apiKey) { console.error('RESEND_API_KEY not configured — skipping email'); return; }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ from: 'FixMyCity <noreply@fixmycity.gov.gh>', to, subject, html, text }),
+  });
+  if (!res.ok) throw new Error(`resend returned ${res.status}: ${await res.text()}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405);
