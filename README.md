@@ -8,6 +8,9 @@ at every step.
 Built by group **Zero Down Time** as the CSCD 602 (Advanced Software Engineering, MSc)
 capstone project at the University of Ghana.
 
+> **Project status:** see [docs/TRACKER.md](docs/TRACKER.md) for what's built, in progress,
+> and left to do (the sections below are being refreshed).
+
 ## Pilot scope
 
 - **Municipality:** Ayawaso West Municipal Assembly (AWMA), Greater Accra
