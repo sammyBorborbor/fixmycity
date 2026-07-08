@@ -340,6 +340,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; subscription.unsubscribe(); };
   }, [loadAll]);
 
+  /* Realtime: a new notification row means one of my reports changed status, so
+     refetch everything (bell + reports + feed). Debounced to coalesce a burst of
+     staff actions. RLS scopes delivery to my own rows; the filter narrows further. */
+  useEffect(() => {
+    if (!uid) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const channel = supabase
+      .channel('citizen-notifications')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
+        () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => { void refresh(); }, 300);
+        })
+      .subscribe();
+    return () => { clearTimeout(timer); void supabase.removeChannel(channel); };
+  }, [uid, refresh]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     return error ? { error: error.message } : {};
