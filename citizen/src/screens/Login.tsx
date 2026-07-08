@@ -57,12 +57,6 @@ export default function Login() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-paper">
-      {/* status bar */}
-      <div className="shrink-0 h-8 bg-navy flex items-center justify-between px-5 text-white text-[11px] font-medium">
-        <span>9:41</span>
-        <span className="flex items-center gap-1"><Icon name="Signal" size={12} /><Icon name="Wifi" size={12} /><Icon name="BatteryFull" size={14} /></span>
-      </div>
-
       <div className="flex-1 min-h-0">
         <div className="relative w-full h-full flex flex-col bg-paper overflow-y-auto no-scrollbar">
           {/* brand header */}

@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { useStore } from './lib/store.tsx';
-import Icon from './components/Icon.tsx';
 import BottomNav from './components/BottomNav.tsx';
 
 import Login from './screens/Login.tsx';
@@ -32,13 +31,6 @@ function AppShell() {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-paper">
-      {/* status bar */}
-      <div className="shrink-0 h-8 bg-navy flex items-center justify-between px-5 text-white text-[11px] font-medium">
-        <span>9:41</span>
-        <span className="font-bold tracking-wide">FixMyCity</span>
-        <span className="flex items-center gap-1"><Icon name="Signal" size={12} /><Icon name="Wifi" size={12} /><Icon name="BatteryFull" size={14} /></span>
-      </div>
-
       {/* body */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar">
         <Outlet />
