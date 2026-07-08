@@ -4,7 +4,7 @@ import Icon from './Icon.tsx';
 interface Tab { id: string; label: string; icon: string; path: string }
 
 const TABS: Tab[] = [
-  { id: 'home',    label: 'Home',       icon: 'Home',          path: '/' },
+  { id: 'home',    label: 'Home',       icon: 'House',         path: '/' },
   { id: 'report',  label: 'Report',     icon: 'PlusCircle',    path: '/report' },
   { id: 'reports', label: 'My Reports', icon: 'ClipboardList', path: '/reports' },
   { id: 'map',     label: 'Map',        icon: 'Map',           path: '/map' },
