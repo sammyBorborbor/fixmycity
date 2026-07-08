@@ -9,7 +9,7 @@ interface LeafletMapProps {
   reports: Report[];
   onPin?: (r: Report) => void;
   activeId?: string | null;
-  height?: number;
+  height?: number | string;
   rounded?: string;
 }
 
