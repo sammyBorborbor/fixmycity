@@ -44,7 +44,7 @@ export default function Login() {
     setBusy(false);
     if (err) { setError(err); return; }
     if (pendingConfirmation) {
-      setInfo('Check your email to confirm your account, then sign in.');
+      setInfo('Check your email and tap the confirmation link to finish setting up your account.');
       setView('signin');
       setEmail(signupEmail);
       setPw('');

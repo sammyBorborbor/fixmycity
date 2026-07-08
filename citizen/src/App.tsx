@@ -5,6 +5,7 @@ import { useStore } from './lib/store.tsx';
 import BottomNav from './components/BottomNav.tsx';
 
 import Login from './screens/Login.tsx';
+import AuthCallback from './screens/AuthCallback.tsx';
 import Home from './screens/Home.tsx';
 import ReportFlow from './screens/ReportFlow.tsx';
 import MyReports from './screens/MyReports.tsx';
@@ -49,6 +50,7 @@ export default function App() {
     <div className="mx-auto w-full max-w-[420px] h-[100dvh] flex flex-col overflow-hidden bg-paper shadow-xl">
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route element={<RequireAuth><AppShell /></RequireAuth>}>
           <Route path="/" element={<Home />} />
           <Route path="/report" element={<ReportFlow />} />

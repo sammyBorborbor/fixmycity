@@ -4,6 +4,14 @@ import type { Database } from './database.types.ts';
 export const supabase = createClient<Database>(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true, // parse tokens from the email-confirmation redirect
+      flowType: 'implicit',     // tokens in the URL hash; no code-verifier, cross-device safe
+    },
+  },
 );
 
 /* Report photos live in a private bucket; viewing goes through signed URLs. */
