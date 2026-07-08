@@ -75,16 +75,28 @@ export interface ReportDraft {
 
 export interface CitizenUser { name: string; firstName: string; email: string }
 
+export interface Notification {
+  id: number;
+  reportRef: string | null;   // report reference for navigation
+  status: StatusName;         // drives title/icon (row `type` is the new status)
+  body: string;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface StoreValue {
   authReady: boolean;
   user: CitizenUser | null;
   reports: Report[];
   crews: Crew[];
+  notifications: Notification[];
+  unreadCount: number;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signUp: (name: string, email: string, password: string) => Promise<{ error?: string; pendingConfirmation?: boolean }>;
   signOut: () => Promise<void>;
   submitReport: (draft: ReportDraft) => Promise<{ report?: Report; error?: string }>;
   reopenReport: (id: string) => Promise<{ error?: string }>;
+  markAllRead: () => Promise<void>;
 }
 
 /* ---- Status model ------------------------------------------------------ */
@@ -255,14 +267,17 @@ async function describeError(error: unknown): Promise<string> {
   return error instanceof Error ? error.message : 'Something went wrong.';
 }
 
+type NotificationRow = Tables<'notifications'>;
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
   const [user, setUser] = useState<CitizenUser | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [crews, setCrews] = useState<Crew[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  /* Load profile + crews + reports for the signed-in user. */
+  /* Load profile + crews + reports + notifications for the signed-in user. */
   const loadAll = useCallback(async (userId: string, email: string) => {
     const [{ data: profile }, { data: crewRows }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
@@ -279,7 +294,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .from('reports')
       .select('*, status_transitions(*)')
       .order('created_at', { ascending: false });
-    setReports((reportRows ?? []).map(r => mapReport(r, userId, name)));
+    const mapped = (reportRows ?? []).map(r => mapReport(r, userId, name));
+    setReports(mapped);
+
+    // notifications reference reports by uuid; resolve to the public reference
+    const uuidToRef = new Map(mapped.map(r => [r.uuid!, r.id]));
+    const { data: notifRows } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setNotifications((notifRows ?? []).map((n: NotificationRow) => ({
+      id: n.id,
+      reportRef: n.report_id ? uuidToRef.get(n.report_id) ?? null : null,
+      status: DB_TO_STATUS[n.type as ReportRow['status']] ?? 'Submitted',
+      body: n.body,
+      read: n.read,
+      createdAt: n.created_at,
+    })));
   }, []);
 
   const refresh = useCallback(async () => {
@@ -300,7 +331,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
-        setUid(null); setUser(null); setReports([]);
+        setUid(null); setUser(null); setReports([]); setNotifications([]);
       } else if (event === 'SIGNED_IN' && session.user) {
         setUid(session.user.id);
         void loadAll(session.user.id, session.user.email ?? '');
@@ -373,10 +404,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {};
   }, [reports, refresh]);
 
+  const markAllRead = useCallback(async () => {
+    if (!uid) return;
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    await supabase.from('notifications').update({ read: true }).eq('user_id', uid).eq('read', false);
+  }, [uid]);
+
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
+
   const value = useMemo<StoreValue>(() => ({
-    authReady, user, reports, crews,
-    signIn, signUp, signOut, submitReport, reopenReport,
-  }), [authReady, user, reports, crews, signIn, signUp, signOut, submitReport, reopenReport]);
+    authReady, user, reports, crews, notifications, unreadCount,
+    signIn, signUp, signOut, submitReport, reopenReport, markAllRead,
+  }), [authReady, user, reports, crews, notifications, unreadCount,
+       signIn, signUp, signOut, submitReport, reopenReport, markAllRead]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

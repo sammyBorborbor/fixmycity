@@ -4,16 +4,13 @@ import type { Report } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import ReportCard from '../components/ReportCard.tsx';
 
-const NO_UNREAD = new Set<string>();
-
 function bySubmittedDesc(a: Report, b: Report) {
   return new Date(b.timeline[0].timestamp).getTime() - new Date(a.timeline[0].timestamp).getTime();
 }
 
 export default function Home() {
-  const { reports, user } = useStore();
+  const { reports, user, unreadCount } = useStore();
   const navigate = useNavigate();
-  const unread = NO_UNREAD;
 
   const recent = [...reports].sort(bySubmittedDesc).slice(0, 3);
   const openCount = reports.filter(r => !['Resolved', 'Rejected'].includes(r.status)).length;
@@ -27,7 +24,7 @@ export default function Home() {
         </div>
         <button onClick={() => navigate('/notifications')} className="relative w-10 h-10 rounded-full bg-white ring-1 ring-black/5 shadow-sm flex items-center justify-center text-navy">
           <Icon name="Bell" size={18} />
-          {unread.size > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-gold text-white text-[10px] font-bold flex items-center justify-center pop-dot">{unread.size}</span>}
+          {unreadCount > 0 && <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-gold text-white text-[10px] font-bold flex items-center justify-center pop-dot">{unreadCount}</span>}
         </button>
       </div>
 
@@ -66,7 +63,7 @@ export default function Home() {
         <button onClick={() => navigate('/reports')} className="text-xs font-semibold text-ocean">View all</button>
       </div>
       <div className="flex flex-col gap-2.5">
-        {recent.map(r => <ReportCard key={r.id} r={r} unread={unread.has(r.id)} onClick={() => navigate('/reports/' + r.id)} />)}
+        {recent.map(r => <ReportCard key={r.id} r={r} unread={false} onClick={() => navigate('/reports/' + r.id)} />)}
       </div>
     </div>
   );
