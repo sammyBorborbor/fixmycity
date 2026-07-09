@@ -217,11 +217,13 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Forgot-password / reset flow — login "Forgot password?" view + `/reset-password` screen.
-2. Sign-out confirmation; cleared prefilled demo login credentials.
-3. Pinned the citizen bottom nav (viewport-locked layout); only the content area scrolls.
-4. Branded auth email templates (`confirmation.html` + `recovery.html`).
-5. Citizen Issue Map fills the available screen height (flex-fill) instead of a fixed 360px
+1. Citizen My Reports — empty-state card ("No reports yet") when the list is empty, mirroring
+   the Home empty state, instead of a blank page.
+2. Forgot-password / reset flow — login "Forgot password?" view + `/reset-password` screen.
+3. Sign-out confirmation; cleared prefilled demo login credentials.
+4. Pinned the citizen bottom nav (viewport-locked layout); only the content area scrolls.
+5. Branded auth email templates (`confirmation.html` + `recovery.html`).
+6. Citizen Issue Map fills the available screen height (flex-fill) instead of a fixed 360px
    box, removing the dead space below the legend.
 2. Citizen report cancellation — a reporter can withdraw their own report while still
    Submitted (before acknowledgement) via the new `cancel-report` edge function (hard delete:
