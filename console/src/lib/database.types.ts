@@ -94,31 +94,40 @@ export type Database = {
       }
       profiles: {
         Row: {
+          console_role: string | null
           created_at: string
           crew_id: string | null
+          email: string | null
           full_name: string
           id: string
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           status: Database["public"]["Enums"]["profile_status"]
+          unit: string | null
         }
         Insert: {
+          console_role?: string | null
           created_at?: string
           crew_id?: string | null
+          email?: string | null
           full_name?: string
           id: string
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["profile_status"]
+          unit?: string | null
         }
         Update: {
+          console_role?: string | null
           created_at?: string
           crew_id?: string | null
+          email?: string | null
           full_name?: string
           id?: string
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           status?: Database["public"]["Enums"]["profile_status"]
+          unit?: string | null
         }
         Relationships: [
           {

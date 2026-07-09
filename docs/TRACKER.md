@@ -178,8 +178,6 @@ or report queueing (network required for all API/storage calls).
 
 These UIs work but mutate session-local state only (labelled in `console/src/lib/store.tsx`):
 
-- **Users & Roles** — `SEED_USERS`; invite / change-role / suspend are in-memory (needs a
-  schema addition).
 - **Crew roster edits** — crew *assignment* uses live crews, but add-crew / toggle-availability /
   add-member / set-lead are session-local.
 - **Settings** — entirely local `useState`; "Settings saved" is cosmetic.
@@ -202,7 +200,8 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
   update-password screen (needs `/reset-password` added to the Supabase redirect allowlist).
 - [ ] Ship the external image-model API and wire `_shared/image-model.ts` — unblocks both AI features (M5).
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
-- [ ] Persist console Users, Crews roster, Settings, Profile (schema addition).
+- [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
+- [ ] Persist console Crews roster, Settings, Profile (schema addition).
 - [ ] Compute real Analytics values (avg resolution time, week-over-week deltas).
 - [ ] Wire the console search box.
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
@@ -217,7 +216,12 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Citizen My Reports — empty-state card ("No reports yet") when the list is empty, mirroring
+1. Console Users & Roles is now real: new `manage-users` edge function (admin-gated) invites staff
+   via `inviteUserByEmail` and persists role / suspend changes; `profiles` gained `console_role`,
+   `unit`, `email` columns (migration `20260709120000_staff_directory.sql`); the console loads the
+   staff list from `profiles` and suspended staff are rejected at login. The 5 console roles remain
+   a directory label, not enforced permissions.
+2. Citizen My Reports — empty-state card ("No reports yet") when the list is empty, mirroring
    the Home empty state, instead of a blank page.
 2. Forgot-password / reset flow — login "Forgot password?" view + `/reset-password` screen.
 3. Sign-out confirmation; cleared prefilled demo login credentials.

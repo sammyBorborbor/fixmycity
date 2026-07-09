@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useStore, ROLES } from '../lib/store.tsx';
+import { useStore, ROLES, UNITS } from '../lib/store.tsx';
 import type { RoleName } from '../lib/store.tsx';
 import Btn from '../components/Btn.tsx';
 
@@ -14,26 +14,51 @@ const roleStyle: Record<RoleName, string> = {
 interface InviteForm { name: string; email: string; role: RoleName; unit: string }
 
 export default function Users() {
-  const { staff, inviteUser, setUserRole, setUserStatus } = useStore();
+  const { user, staff, inviteUser, setUserRole, setUserStatus } = useStore();
+  const isAdmin = user?.role === 'Administrator';
   const [inviting, setInviting] = useState(false);
-  const [form, setForm] = useState<InviteForm>({ name: '', email: '', role: 'Officer', unit: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<InviteForm>({ name: '', email: '', role: 'Officer', unit: UNITS[0] });
 
-  function invite() {
-    if (!form.name.trim() || !form.email.trim()) return;
-    inviteUser(form);
-    setForm({ name: '', email: '', role: 'Officer', unit: '' });
+  async function invite() {
+    if (!form.name.trim() || !form.email.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    const { error } = await inviteUser(form);
+    setBusy(false);
+    if (error) { setError(error); return; }
+    setForm({ name: '', email: '', role: 'Officer', unit: UNITS[0] });
     setInviting(false);
+  }
+
+  async function changeRole(id: string, role: RoleName) {
+    setError(null);
+    const { error } = await setUserRole(id, role);
+    if (error) setError(error);
+  }
+
+  async function changeStatus(id: string, active: boolean) {
+    setError(null);
+    const { error } = await setUserStatus(id, active);
+    if (error) setError(error);
   }
 
   return (
     <div className="p-6 max-w-[1100px]">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold text-navy">Users &amp; Roles</h1>
-        <Btn variant="primary" icon="UserPlus" onClick={() => setInviting(i => !i)}>Invite user</Btn>
+        {isAdmin && (
+          <Btn variant="primary" icon="UserPlus" onClick={() => { setError(null); setInviting(i => !i); }}>Invite user</Btn>
+        )}
       </div>
       <p className="text-sm text-muted mb-5">{staff.length} staff accounts · {staff.filter(u => u.active).length} active</p>
 
-      {inviting && (
+      {error && (
+        <div className="bg-red-50 text-red-700 ring-1 ring-red-200 rounded-xl px-4 py-3 text-sm mb-5">{error}</div>
+      )}
+
+      {inviting && isAdmin && (
         <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-5 mb-5 fade-in">
           <h2 className="font-bold text-navy mb-3">Invite a staff member</h2>
           <div className="grid grid-cols-4 gap-3">
@@ -56,13 +81,15 @@ export default function Users() {
             </div>
             <div>
               <label className="text-xs font-semibold text-muted uppercase tracking-wide">Unit</label>
-              <input value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} placeholder="Operations"
-                className="mt-1.5 w-full rounded-xl ring-1 ring-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean" />
+              <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}
+                className="mt-1.5 w-full rounded-xl ring-1 ring-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean">
+                {UNITS.map(u => <option key={u}>{u}</option>)}
+              </select>
             </div>
           </div>
           <div className="flex gap-2 mt-4">
-            <Btn variant="outline" onClick={() => setInviting(false)}>Cancel</Btn>
-            <Btn variant="primary" icon="Send" onClick={invite}>Send invite</Btn>
+            <Btn variant="outline" onClick={() => setInviting(false)} disabled={busy}>Cancel</Btn>
+            <Btn variant="primary" icon="Send" onClick={invite} disabled={busy}>{busy ? 'Sending…' : 'Send invite'}</Btn>
           </div>
         </div>
       )}
@@ -89,10 +116,14 @@ export default function Users() {
                 </td>
                 <td className="px-4 py-3 text-muted">{u.unit}</td>
                 <td className="px-4 py-3">
-                  <select value={u.role} onChange={e => setUserRole(u.id, e.target.value as RoleName)}
-                    className={`text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-inset focus:outline-none cursor-pointer ${roleStyle[u.role] || roleStyle.Viewer}`}>
-                    {ROLES.map(r => <option key={r}>{r}</option>)}
-                  </select>
+                  {isAdmin ? (
+                    <select value={u.role} onChange={e => changeRole(u.id, e.target.value as RoleName)}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-inset focus:outline-none cursor-pointer ${roleStyle[u.role] || roleStyle.Viewer}`}>
+                      {ROLES.map(r => <option key={r}>{r}</option>)}
+                    </select>
+                  ) : (
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-inset ${roleStyle[u.role] || roleStyle.Viewer}`}>{u.role}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${u.active ? 'text-green-700' : 'text-gray-400'}`}>
@@ -100,9 +131,13 @@ export default function Users() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => setUserStatus(u.id, !u.active)} className="text-xs font-semibold text-ocean hover:underline">
-                    {u.active ? 'Suspend' : 'Reactivate'}
-                  </button>
+                  {isAdmin && u.email !== user?.email ? (
+                    <button onClick={() => changeStatus(u.id, !u.active)} className="text-xs font-semibold text-ocean hover:underline">
+                      {u.active ? 'Suspend' : 'Reactivate'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
                 </td>
               </tr>
             ))}

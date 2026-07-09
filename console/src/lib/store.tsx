@@ -121,9 +121,9 @@ export interface StoreValue {
   addMember: (id: string, name: string) => void;
   removeMember: (id: string, name: string) => void;
   setLead: (id: string, name: string) => void;
-  inviteUser: (u: { name: string; email: string; role?: RoleName; unit?: string }) => void;
-  setUserRole: (id: string, role: RoleName) => void;
-  setUserStatus: (id: string, active: boolean) => void;
+  inviteUser: (u: { name: string; email: string; role?: RoleName; unit?: string }) => Promise<{ error?: string }>;
+  setUserRole: (id: string, role: RoleName) => Promise<{ error?: string }>;
+  setUserStatus: (id: string, active: boolean) => Promise<{ error?: string }>;
 }
 
 /* ---- Status model ------------------------------------------------------ */
@@ -177,13 +177,9 @@ const SEED_CREWS: Crew[] = [
 
 /* ---- AWMA staff users -------------------------------------------------- */
 export const ROLES: RoleName[] = ['Administrator', 'Supervisor', 'Officer', 'Dispatcher', 'Viewer'];
-const SEED_USERS: Staff[] = [
-  { id: 'u1', name: 'Akua Osei',     email: 'akua.osei@awma.gov.gh',     role: 'Administrator', unit: 'Operations',  active: true,  initials: 'AO' },
-  { id: 'u2', name: 'Kofi Mensah',   email: 'kofi.mensah@awma.gov.gh',   role: 'Supervisor',    unit: 'Sanitation',  active: true,  initials: 'KM' },
-  { id: 'u3', name: 'Ama Darko',     email: 'ama.darko@awma.gov.gh',     role: 'Officer',       unit: 'Drainage',    active: true,  initials: 'AD' },
-  { id: 'u4', name: 'Nii Lartey',    email: 'nii.lartey@awma.gov.gh',    role: 'Dispatcher',    unit: 'Control room', active: true, initials: 'NL' },
-  { id: 'u5', name: 'Efua Sarpong',  email: 'efua.sarpong@awma.gov.gh',  role: 'Officer',       unit: 'Electrical',  active: false, initials: 'ES' },
-];
+// AWMA office units shown on the staff directory (distinct from field-crew
+// departments — see Crews). Free-text before; now a fixed picklist.
+export const UNITS: string[] = ['Operations', 'Sanitation', 'Drainage', 'Electrical', 'Control room'];
 
 export const CITIZEN = { name: 'Ama Asante', firstName: 'Ama', email: 'ama.asante@gmail.com' };
 
@@ -234,6 +230,24 @@ function mapCrew(row: CrewRow): Crew {
   return {
     id: row.id, name: row.name, dept: DEPT_LABEL[row.department],
     lead: row.lead_name, phone: row.phone, available: row.available, members: row.member_count,
+  };
+}
+
+// A profiles row is a "staff" account when it can reach the console (officer /
+// admin access role) or carries an org-chart label. console_role is the display
+// role; fall back to deriving it from the access role for legacy rows.
+function mapStaff(row: ProfileRow): Staff {
+  const name = row.full_name || row.email || 'Unknown';
+  const consoleRole = (row.console_role as RoleName | null)
+    ?? (row.role === 'admin' ? 'Administrator' : 'Officer');
+  return {
+    id: row.id,
+    name,
+    email: row.email ?? '',
+    role: consoleRole,
+    unit: row.unit || '—',
+    active: row.status === 'active',
+    initials: initialsOf(name),
   };
 }
 
@@ -292,18 +306,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Operator | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [crews, setCrews] = useState<Crew[]>([]);
-  // Staff directory stays demo-only this milestone (needs a schema addition to
-  // model AWMA's 5 console roles + invite-via-admin-API). Seeded, in-memory.
-  const [staff, setStaff] = useState<Staff[]>(() => SEED_USERS.map(u => ({ ...u })));
+  // Real staff directory, loaded from `profiles` (see loadStaff). Writes go
+  // through the manage-users edge function, mirroring the report state machine.
+  const [staff, setStaff] = useState<Staff[]>([]);
 
   // keep crew lookups (used across views) in sync with live crew state
   // eslint-disable-next-line react-hooks/globals -- module-level mirror for crewName/crewById
   _liveCrews = crews;
   useEffect(() => { _liveCrews = crews; }, [crews]);
 
+  /* Staff directory: every profile with console access or an org-chart label.
+     Read via the client's plain `select` grant; writes go through manage-users. */
+  const loadStaff = useCallback(async () => {
+    const { data: rows } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, console_role, unit, status, role')
+      .or('role.in.(officer,admin),console_role.not.is.null')
+      .order('full_name');
+    setStaff((rows ?? []).map(r => mapStaff(r as ProfileRow)));
+  }, []);
+
   /* Load crews + reports (+ profile names for actor labels). Staff RLS returns
      every report and profile, so the console sees the whole operation. */
   const loadData = useCallback(async () => {
+    await loadStaff();
     const [{ data: crewRows }, { data: profileRows }] = await Promise.all([
       supabase.from('crews').select('*').order('name'),
       supabase.from('profiles').select('id, full_name'),
@@ -322,20 +348,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .select('*, status_transitions!status_transitions_report_id_fkey(*)')
       .order('created_at', { ascending: false });
     setReports((reportRows ?? []).map(r => mapReport(r, names)));
-  }, []);
+  }, [loadStaff]);
 
-  /* Session bootstrap + role gate: only officer/admin may use the console. */
+  /* Session bootstrap + role gate: only active officer/admin may use the console. */
   const applySession = useCallback(async (userId: string, email: string): Promise<boolean> => {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
     const p = profile as ProfileRow | null;
     if (!p || (p.role !== 'officer' && p.role !== 'admin')) return false;
+    if (p.status === 'suspended') return false;
     const name = p.full_name || email;
     setUser({
       name,
       firstName: name.split(/\s+/)[0],
       email,
-      role: p.role === 'admin' ? 'Administrator' : 'Officer',
-      unit: 'Operations',
+      role: (p.console_role as RoleName | null) ?? (p.role === 'admin' ? 'Administrator' : 'Officer'),
+      unit: p.unit || 'Operations',
       initials: initialsOf(name),
     });
     await loadData();
@@ -472,24 +499,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCrews(prev => prev.map(c => c.id === id ? { ...c, lead: name } : c));
   }, []);
 
-  /* ---- Staff / user actions (demo-only, session-local) ---- */
-  const inviteUser = useCallback((u: { name: string; email: string; role?: RoleName; unit?: string }) => {
-    setStaff(prev => [...prev, {
-      id: 'u_' + Date.now(),
-      name: u.name.trim(),
+  /* ---- Staff / user actions (server-side; admin-gated manage-users function) ---- */
+  // All three write through the edge function (the client can't touch role /
+  // status / console_role directly), then refetch the directory.
+  const runManageUsers = useCallback(async (body: Record<string, unknown>, fallback: string) => {
+    const { error } = await supabase.functions.invoke('manage-users', { body });
+    if (error) {
+      let msg = fallback;
+      if (error instanceof FunctionsHttpError) {
+        try { const b = await error.context.json(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+      } else if (error instanceof Error) { msg = error.message; }
+      return { error: msg };
+    }
+    await loadStaff();
+    return {};
+  }, [loadStaff]);
+
+  const inviteUser = useCallback((u: { name: string; email: string; role?: RoleName; unit?: string }) =>
+    runManageUsers({
+      action: 'invite',
       email: u.email.trim(),
-      role: u.role || 'Officer',
-      unit: (u.unit && u.unit.trim()) || '—',
-      active: true,
-      initials: initialsOf(u.name),
-    }]);
-  }, []);
-  const setUserRole = useCallback((id: string, role: RoleName) => {
-    setStaff(prev => prev.map(u => u.id === id ? { ...u, role } : u));
-  }, []);
-  const setUserStatus = useCallback((id: string, active: boolean) => {
-    setStaff(prev => prev.map(u => u.id === id ? { ...u, active } : u));
-  }, []);
+      full_name: u.name.trim(),
+      console_role: u.role ?? 'Officer',
+      unit: u.unit?.trim() ?? '',
+    }, 'Could not send the invite.'), [runManageUsers]);
+
+  const setUserRole = useCallback((id: string, role: RoleName) =>
+    runManageUsers({ action: 'set_role', user_id: id, console_role: role }, 'Could not update the role.'),
+    [runManageUsers]);
+
+  const setUserStatus = useCallback((id: string, active: boolean) =>
+    runManageUsers({ action: 'set_status', user_id: id, active }, 'Could not update the status.'),
+    [runManageUsers]);
 
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, staff,
