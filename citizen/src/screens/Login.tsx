@@ -92,6 +92,7 @@ export default function Login() {
                 <div className="mt-1.5 mb-3 relative">
                   <Icon name="Mail" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" inputMode="email"
                     className="w-full rounded-xl ring-1 ring-gray-300 focus:ring-2 focus:ring-ocean pl-9 pr-3 py-2.5 text-sm text-ink focus:outline-none" />
                 </div>
 
@@ -132,6 +133,7 @@ export default function Login() {
                 <div className="mt-1.5 mb-3 relative">
                   <Icon name="Mail" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="email" value={signupEmail} onChange={e => setSignupEmail(e.target.value)} placeholder="you@example.com"
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" inputMode="email"
                     className="w-full rounded-xl ring-1 ring-gray-300 focus:ring-2 focus:ring-ocean pl-9 pr-3 py-2.5 text-sm text-ink focus:outline-none" />
                 </div>
 
@@ -167,6 +169,7 @@ export default function Login() {
                 <div className="mt-1.5 relative">
                   <Icon name="Mail" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email" inputMode="email"
                     className="w-full rounded-xl ring-1 ring-gray-300 focus:ring-2 focus:ring-ocean pl-9 pr-3 py-2.5 text-sm text-ink focus:outline-none" />
                 </div>
 
