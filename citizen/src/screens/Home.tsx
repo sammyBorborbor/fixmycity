@@ -9,18 +9,25 @@ function bySubmittedDesc(a: Report, b: Report) {
   return new Date(b.timeline[0].timestamp).getTime() - new Date(a.timeline[0].timestamp).getTime();
 }
 
+function greeting(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function Home() {
   const { reports, user, unreadCount } = useStore();
   const navigate = useNavigate();
 
   const recent = [...reports].sort(bySubmittedDesc).slice(0, 3);
   const openCount = reports.filter(r => !['Resolved', 'Rejected'].includes(r.status)).length;
+  const hour = new Date().getHours();
 
   return (
     <div className="fade-up px-4 pt-5 pb-4">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-muted text-sm">Good afternoon,</p>
+          <p className="text-muted text-sm">{greeting(hour)},</p>
           <h1 className="text-2xl font-bold text-navy leading-tight">Hello, {user?.firstName} 👋</h1>
         </div>
         <button onClick={() => navigate('/notifications')} className="relative w-10 h-10 rounded-full bg-white ring-1 ring-black/5 shadow-sm flex items-center justify-center text-navy">
