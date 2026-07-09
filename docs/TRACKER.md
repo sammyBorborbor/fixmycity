@@ -115,6 +115,17 @@ delete can proceed (content stays immutable; no client DELETE policy exists).
 (status-gated action bar), Assignments, MapView, Analytics, Audit Log — all computed from
 the live `reports` + joined `status_transitions`.
 
+✅ **Users & Roles is real** (`manage-users` edge function, admin-gated): invite staff via
+`inviteUserByEmail` with a branded set-password email landing on the console `/set-password`
+screen; change role; suspend/reactivate (suspended staff are rejected at login). Adds
+`console_role` / `unit` / `email` to `profiles`. The 5 office roles are a directory label;
+`user_role` stays the access boundary.
+
+✅ **Crew membership is real** (`manage-crews` edge function, staff-gated): crew members are
+`role='crew'` users invited under the new **Field Crew** role; the Crews page assigns / moves /
+removes them (writing `profiles.crew_id`) and sends a branded crew-assignment email + in-app
+notification. Crew *create* + availability toggle remain demo-only.
+
 ---
 
 ## M4 — Notifications (closes the loop)
