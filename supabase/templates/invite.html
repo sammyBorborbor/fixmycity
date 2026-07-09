@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>You have been invited to the AWMA Operations Console</title>
+</head>
+<body style="margin:0;padding:0;background:#FAFAFA;">
+  <!-- preheader (hidden inbox preview) -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#FAFAFA;font-size:1px;line-height:1px;">
+    Set your password to access the FixMyCity Operations Console.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#FAFAFA;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" style="width:480px;max-width:480px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+
+          <!-- header -->
+          <tr>
+            <td bgcolor="#0B2545" style="background:#0B2545;background:radial-gradient(circle at 50% -20%,#16386a 0%,#0B2545 70%);border-radius:12px 12px 0 0;padding:28px 24px;text-align:center;">
+              <div style="display:inline-block;background:#C8932F;color:#0B2545;font-size:15px;font-weight:800;letter-spacing:0.03em;padding:8px 12px;border-radius:10px;">AWMA</div>
+              <div style="color:#ffffff;font-size:20px;font-weight:700;margin-top:12px;">FixMyCity Operations</div>
+              <div style="color:rgba(255,255,255,0.65);font-size:13px;margin-top:4px;">Ayawaso West Municipal Assembly &middot; staff access</div>
+            </td>
+          </tr>
+
+          <!-- body card -->
+          <tr>
+            <td bgcolor="#ffffff" style="background:#ffffff;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 12px 12px;padding:32px 24px;">
+
+              <h1 style="margin:0 0 12px;color:#1F2937;font-size:20px;font-weight:700;">You&rsquo;ve been invited</h1>
+              <p style="margin:0 0 24px;color:#1F2937;font-size:15px;line-height:1.55;">
+                An administrator has invited you to the FixMyCity Operations Console &mdash; the tool AWMA staff use to triage and resolve resident reports. Set a password to activate your account and sign in.
+              </p>
+
+              <!-- bulletproof gold button -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 24px;">
+                <tr>
+                  <td align="center" bgcolor="#C8932F" style="background:#C8932F;border-radius:10px;">
+                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:13px 28px;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;border-radius:10px;">Set your password</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- fallback link -->
+              <p style="margin:0 0 8px;color:#6B7280;font-size:12px;line-height:1.5;">
+                Or copy and paste this link into your browser:
+              </p>
+              <p style="margin:0 0 24px;word-break:break-all;">
+                <a href="{{ .ConfirmationURL }}" target="_blank" style="color:#1E5F8E;font-size:12px;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </p>
+
+              <div style="border-top:1px solid #E5E7EB;padding-top:16px;">
+                <p style="margin:0 0 6px;color:#6B7280;font-size:12px;line-height:1.5;">This invite link expires in 24 hours.</p>
+                <p style="margin:0;color:#6B7280;font-size:12px;line-height:1.5;">If you weren&rsquo;t expecting this invitation, you can safely ignore this email.</p>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- footer -->
+          <tr>
+            <td style="padding:16px;text-align:center;">
+              <p style="margin:0;color:#6B7280;font-size:11px;">FixMyCity &middot; AWMA pilot &middot; Accra &middot; Authorised personnel only</p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

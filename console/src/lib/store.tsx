@@ -114,6 +114,7 @@ export interface StoreValue {
   staff: Staff[];
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
+  updatePassword: (password: string) => Promise<{ error?: string }>;
   transitionReport: (reportId: string, action: TransitionAction, opts?: TransitionOpts) => Promise<{ error?: string }>;
   checkDuplicates: (reportId: string) => Promise<{ candidates?: DuplicateCandidate[]; error?: string }>;
   addCrew: (c: Omit<Crew, 'id'>) => void;
@@ -419,6 +420,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  /* Set a password for the current session — used by the invite /set-password
+     landing, where clicking the invite link established a session. */
+  const updatePassword = useCallback(async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    return error ? { error: error.message } : {};
+  }, []);
+
   /* ---- Report state machine (server-side; this client only invokes it) ---- */
   const transitionReport = useCallback(async (reportId: string, action: TransitionAction, opts: TransitionOpts = {}) => {
     const target = reports.find(r => r.id === reportId);
@@ -522,6 +530,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       full_name: u.name.trim(),
       console_role: u.role ?? 'Officer',
       unit: u.unit?.trim() ?? '',
+      redirect_to: `${window.location.origin}/set-password`,
     }, 'Could not send the invite.'), [runManageUsers]);
 
   const setUserRole = useCallback((id: string, role: RoleName) =>
@@ -534,11 +543,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, staff,
-    signIn, signOut,
+    signIn, signOut, updatePassword,
     transitionReport, checkDuplicates,
     addCrew, toggleCrewAvailability, addMember, removeMember, setLead,
     inviteUser, setUserRole, setUserStatus,
-  }), [authReady, user, reports, crews, staff, signIn, signOut, transitionReport, checkDuplicates,
+  }), [authReady, user, reports, crews, staff, signIn, signOut, updatePassword, transitionReport, checkDuplicates,
        addCrew, toggleCrewAvailability, addMember, removeMember, setLead,
        inviteUser, setUserRole, setUserStatus]);
 

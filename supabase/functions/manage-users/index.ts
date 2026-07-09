@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   let body: {
     action?: string;
     email?: string; full_name?: string; console_role?: string; unit?: string; phone?: string;
-    user_id?: string; active?: boolean;
+    redirect_to?: string; user_id?: string; active?: boolean;
   };
   try {
     body = await req.json();
@@ -81,6 +81,9 @@ Deno.serve(async (req) => {
 
       // inviteUserByEmail creates the auth user (firing the profile-bootstrap
       // trigger, which reads this metadata) and sends the set-password email.
+      // redirectTo lands the invite link on the console's /set-password page
+      // (must be on the project's redirect allow-list — see supabase/config.toml).
+      const redirectTo = typeof body.redirect_to === 'string' ? body.redirect_to : undefined;
       const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
         data: {
           full_name: fullName,
@@ -88,6 +91,7 @@ Deno.serve(async (req) => {
           unit: unit ?? '',
           phone: body.phone?.trim() ?? '',
         },
+        redirectTo,
       });
       if (inviteErr || !invited?.user) {
         return json({ error: inviteErr?.message ?? 'could not send invite' }, 400);

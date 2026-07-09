@@ -189,6 +189,12 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 - **No tests** — no backend/edge-function tests, no Vitest or Playwright suite yet.
 - Citizen `Profile` notification/push toggles are local-only (not persisted).
+- **Manual hosted-project config (staff invite).** `supabase/config.toml` + `supabase/templates/`
+  are the source of truth, but the hosted project applies auth email templates and the redirect
+  allow-list via the dashboard. For the invite click-through to work end-to-end, add on the hosted
+  project: (1) the branded **Invite** email template (`templates/invite.html`), and (2)
+  `http://localhost:5174/set-password` + the deployed console URL's `/set-password` to the redirect
+  allow-list. Same applies to the console once it's deployed to Vercel.
 
 ---
 
@@ -216,7 +222,11 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Console Users & Roles is now real: new `manage-users` edge function (admin-gated) invites staff
+1. Staff invite flow finished: branded `supabase/templates/invite.html`, the invite email now
+   redirects to a new console `/set-password` screen (public route) where the invited staffer sets
+   their password, and the invite Unit field is a dropdown. Needs a manual hosted-project step —
+   see "Manual hosted-project config" below.
+2. Console Users & Roles is now real: new `manage-users` edge function (admin-gated) invites staff
    via `inviteUserByEmail` and persists role / suspend changes; `profiles` gained `console_role`,
    `unit`, `email` columns (migration `20260709120000_staff_directory.sql`); the console loads the
    staff list from `profiles` and suspended staff are rejected at login. The 5 console roles remain

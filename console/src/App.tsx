@@ -7,6 +7,7 @@ import TopHeader from './components/TopHeader.tsx';
 import DetailPanel from './components/DetailPanel.tsx';
 
 import Login from './screens/Login.tsx';
+import SetPassword from './screens/SetPassword.tsx';
 import Inbox from './screens/Inbox.tsx';
 import MapView from './screens/MapView.tsx';
 import Assignments from './screens/Assignments.tsx';
@@ -73,6 +74,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/set-password" element={<SetPassword />} />
       <Route element={<RequireAuth><AppShell /></RequireAuth>}>
         <Route path="/" element={<Inbox />} />
         <Route path="/map" element={<MapView />} />
