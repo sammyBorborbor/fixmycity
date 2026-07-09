@@ -9,6 +9,7 @@ const roleStyle: Record<RoleName, string> = {
   Officer: 'bg-ocean/10 text-ocean ring-ocean/20',
   Dispatcher: 'bg-amber-50 text-amber-800 ring-amber-200',
   Viewer: 'bg-gray-100 text-gray-600 ring-gray-200',
+  'Field Crew': 'bg-green-50 text-green-700 ring-green-200',
 };
 
 interface InviteForm { name: string; email: string; role: RoleName; unit: string }

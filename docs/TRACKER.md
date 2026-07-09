@@ -178,8 +178,8 @@ or report queueing (network required for all API/storage calls).
 
 These UIs work but mutate session-local state only (labelled in `console/src/lib/store.tsx`):
 
-- **Crew roster edits** — crew *assignment* uses live crews, but add-crew / toggle-availability /
-  add-member / set-lead are session-local.
+- **Crew create / availability toggle** — `addCrew` and `toggleCrewAvailability` are still
+  session-local (crew *membership* and lead are now real — see below).
 - **Settings** — entirely local `useState`; "Settings saved" is cosmetic.
 - **Profile** — edit form is a local draft.
 - **Analytics** — "Avg. resolution time 3.4d" and "+2 vs last week" are hardcoded, not computed.
@@ -207,7 +207,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [ ] Ship the external image-model API and wire `_shared/image-model.ts` — unblocks both AI features (M5).
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
 - [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
-- [ ] Persist console Crews roster, Settings, Profile (schema addition).
+- [ ] Persist console Crew create + availability toggle, Settings, Profile (crew membership is real).
 - [ ] Compute real Analytics values (avg resolution time, week-over-week deltas).
 - [ ] Wire the console search box.
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
@@ -222,7 +222,14 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Staff invite flow finished: branded `supabase/templates/invite.html`, the invite email now
+1. Crew members are now real users. Added a **Field Crew** console role (invited via Users & Roles
+   as `role='crew'`, created silently with no set-password link since there's no crew app yet). The
+   Crews page loads real rosters from `profiles.crew_id`; a new admin/officer-gated `manage-crews`
+   edge function handles assign / move / remove / set-lead, and assigning or moving a member sends a
+   branded Resend email + in-app notification and resyncs `crews.member_count`. Migration
+   `20260709130000_crew_console_role.sql` allows the new console_role. Crew create + availability
+   toggle stay demo.
+2. Staff invite flow finished: branded `supabase/templates/invite.html`, the invite email now
    redirects to a new console `/set-password` screen (public route) where the invited staffer sets
    their password, and the invite Unit field is a dropdown. Needs a manual hosted-project step —
    see "Manual hosted-project config" below.

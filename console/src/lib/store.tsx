@@ -24,7 +24,7 @@ export type LocationName =
   | 'Airport Residential Area' | 'Roman Ridge' | 'Shiashie'
   | 'Legon (near University of Ghana)';
 
-export type RoleName = 'Administrator' | 'Supervisor' | 'Officer' | 'Dispatcher' | 'Viewer';
+export type RoleName = 'Administrator' | 'Supervisor' | 'Officer' | 'Dispatcher' | 'Viewer' | 'Field Crew';
 
 export type TransitionAction = 'acknowledge' | 'assign' | 'reject' | 'in_progress' | 'resolve';
 
@@ -74,6 +74,8 @@ export interface DuplicateCandidate {
   distanceM: number;
 }
 
+export interface CrewMember { id: string; name: string; email: string }
+
 export interface Crew {
   id: string;
   name: string;
@@ -81,7 +83,7 @@ export interface Crew {
   lead: string;
   phone: string;
   available: boolean;
-  roster?: string[];
+  roster?: CrewMember[];
   members?: number;
 }
 
@@ -93,6 +95,7 @@ export interface Staff {
   unit: string;
   active: boolean;
   initials: string;
+  crewId: string | null;
 }
 
 export interface Operator {
@@ -119,9 +122,10 @@ export interface StoreValue {
   checkDuplicates: (reportId: string) => Promise<{ candidates?: DuplicateCandidate[]; error?: string }>;
   addCrew: (c: Omit<Crew, 'id'>) => void;
   toggleCrewAvailability: (id: string) => void;
-  addMember: (id: string, name: string) => void;
-  removeMember: (id: string, name: string) => void;
-  setLead: (id: string, name: string) => void;
+  assignCrewMember: (userId: string, crewId: string) => Promise<{ error?: string }>;
+  inviteCrewMember: (crewId: string, m: { name: string; email: string }) => Promise<{ error?: string }>;
+  removeCrewMember: (userId: string) => Promise<{ error?: string }>;
+  setLead: (crewId: string, name: string) => Promise<{ error?: string }>;
   inviteUser: (u: { name: string; email: string; role?: RoleName; unit?: string }) => Promise<{ error?: string }>;
   setUserRole: (id: string, role: RoleName) => Promise<{ error?: string }>;
   setUserStatus: (id: string, active: boolean) => Promise<{ error?: string }>;
@@ -169,15 +173,15 @@ const ACTION_TO_API: Record<TransitionAction, string> = {
   in_progress: 'start', resolve: 'resolve',
 };
 
-/* ---- Crews (seed) ------------------------------------------------------ */
+/* ---- Crews (seed fallback; real crews + rosters load from the DB) ------- */
 const SEED_CREWS: Crew[] = [
-  { id: 'alpha', name: 'Crew Alpha', dept: 'Sanitation',  lead: 'Yaw Boateng',   phone: '024 118 0042', available: true,  roster: ['Yaw Boateng', 'Adwoa Mensah', 'Kwabena Osei', 'Abena Owusu'] },
-  { id: 'beta',  name: 'Crew Beta',  dept: 'Drainage',    lead: 'Esi Addo',      phone: '020 776 5510', available: true,  roster: ['Esi Addo', 'Kofi Darko', 'Yaa Asantewaa', 'Kwame Nkansah', 'Akosua Frimpong'] },
-  { id: 'gamma', name: 'Crew Gamma', dept: 'Electrical',  lead: 'Kojo Annan',    phone: '055 309 8821', available: false, roster: ['Kojo Annan', 'Ama Boadu', 'Fiifi Tetteh'] },
+  { id: 'alpha', name: 'Crew Alpha', dept: 'Sanitation',  lead: 'Yaw Boateng',   phone: '024 118 0042', available: true,  roster: [] },
+  { id: 'beta',  name: 'Crew Beta',  dept: 'Drainage',    lead: 'Esi Addo',      phone: '020 776 5510', available: true,  roster: [] },
+  { id: 'gamma', name: 'Crew Gamma', dept: 'Electrical',  lead: 'Kojo Annan',    phone: '055 309 8821', available: false, roster: [] },
 ];
 
 /* ---- AWMA staff users -------------------------------------------------- */
-export const ROLES: RoleName[] = ['Administrator', 'Supervisor', 'Officer', 'Dispatcher', 'Viewer'];
+export const ROLES: RoleName[] = ['Administrator', 'Supervisor', 'Officer', 'Dispatcher', 'Viewer', 'Field Crew'];
 // AWMA office units shown on the staff directory (distinct from field-crew
 // departments — see Crews). Free-text before; now a fixed picklist.
 export const UNITS: string[] = ['Operations', 'Sanitation', 'Drainage', 'Electrical', 'Control room'];
@@ -249,6 +253,7 @@ function mapStaff(row: ProfileRow): Staff {
     unit: row.unit || '—',
     active: row.status === 'active',
     initials: initialsOf(name),
+    crewId: row.crew_id ?? null,
   };
 }
 
@@ -321,7 +326,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadStaff = useCallback(async () => {
     const { data: rows } = await supabase
       .from('profiles')
-      .select('id, full_name, email, console_role, unit, status, role')
+      .select('id, full_name, email, console_role, unit, status, role, crew_id')
       .or('role.in.(officer,admin),console_role.not.is.null')
       .order('full_name');
     setStaff((rows ?? []).map(r => mapStaff(r as ProfileRow)));
@@ -331,11 +336,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
      every report and profile, so the console sees the whole operation. */
   const loadData = useCallback(async () => {
     await loadStaff();
-    const [{ data: crewRows }, { data: profileRows }] = await Promise.all([
+    const [{ data: crewRows }, { data: profileRows }, { data: memberRows }] = await Promise.all([
       supabase.from('crews').select('*').order('name'),
       supabase.from('profiles').select('id, full_name'),
+      supabase.from('profiles').select('id, full_name, email, crew_id').eq('role', 'crew'),
     ]);
-    const mappedCrews = (crewRows ?? []).map(mapCrew);
+    // group real crew members (profiles.role='crew') onto their crew's roster
+    const rosters = new Map<string, CrewMember[]>();
+    (memberRows ?? []).forEach((m: Pick<ProfileRow, 'id' | 'full_name' | 'email' | 'crew_id'>) => {
+      if (!m.crew_id) return;
+      const list = rosters.get(m.crew_id) ?? [];
+      list.push({ id: m.id, name: m.full_name || m.email || 'Crew member', email: m.email ?? '' });
+      rosters.set(m.crew_id, list);
+    });
+    const mappedCrews = (crewRows ?? []).map(row => {
+      const crew = mapCrew(row);
+      crew.roster = rosters.get(row.id) ?? [];
+      return crew;
+    });
     _liveCrews = mappedCrews;
     setCrews(mappedCrews);
 
@@ -485,27 +503,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { candidates };
   }, [reports]);
 
-  /* ---- Crew actions (demo-only, session-local; assignment uses live crews) ---- */
+  /* ---- Crew CRUD (still demo-only, session-local) ---- */
   const addCrew = useCallback((c: Omit<Crew, 'id'>) => {
     setCrews(prev => [...prev, { ...c, id: 'crew_' + Date.now() }]);
   }, []);
   const toggleCrewAvailability = useCallback((id: string) => {
     setCrews(prev => prev.map(c => c.id === id ? { ...c, available: !c.available } : c));
   }, []);
-  const addMember = useCallback((id: string, name: string) => {
-    setCrews(prev => prev.map(c => c.id === id ? { ...c, roster: [...(c.roster || []), name] } : c));
-  }, []);
-  const removeMember = useCallback((id: string, name: string) => {
-    setCrews(prev => prev.map(c => {
-      if (c.id !== id) return c;
-      const roster = (c.roster || []).filter(m => m !== name);
-      const lead = c.lead === name ? (roster[0] || '—') : c.lead;
-      return { ...c, roster, lead };
-    }));
-  }, []);
-  const setLead = useCallback((id: string, name: string) => {
-    setCrews(prev => prev.map(c => c.id === id ? { ...c, lead: name } : c));
-  }, []);
+
+  /* ---- Crew membership (server-side; staff-gated manage-crews function) ---- */
+  // Members are real users (profiles.role='crew'/crew_id). Assigning or moving
+  // one fires a branded email; every action refetches so rosters stay in sync.
+  const runManageCrews = useCallback(async (body: Record<string, unknown>, fallback: string) => {
+    const { error } = await supabase.functions.invoke('manage-crews', { body });
+    if (error) {
+      let msg = fallback;
+      if (error instanceof FunctionsHttpError) {
+        try { const b = await error.context.json(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+      } else if (error instanceof Error) { msg = error.message; }
+      return { error: msg };
+    }
+    await loadData();
+    return {};
+  }, [loadData]);
+
+  const assignCrewMember = useCallback((userId: string, crewId: string) =>
+    runManageCrews({ action: 'add_member', user_id: userId, crew_id: crewId }, 'Could not assign the member.'),
+    [runManageCrews]);
+  const inviteCrewMember = useCallback((crewId: string, m: { name: string; email: string }) =>
+    runManageCrews({ action: 'add_member', crew_id: crewId, full_name: m.name.trim(), email: m.email.trim() },
+      'Could not add the member.'), [runManageCrews]);
+  const removeCrewMember = useCallback((userId: string) =>
+    runManageCrews({ action: 'remove_member', user_id: userId }, 'Could not remove the member.'),
+    [runManageCrews]);
+  const setLead = useCallback((crewId: string, name: string) =>
+    runManageCrews({ action: 'set_lead', crew_id: crewId, name }, 'Could not set the lead.'),
+    [runManageCrews]);
 
   /* ---- Staff / user actions (server-side; admin-gated manage-users function) ---- */
   // All three write through the edge function (the client can't touch role /
@@ -545,10 +578,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     authReady, user, reports, crews, staff,
     signIn, signOut, updatePassword,
     transitionReport, checkDuplicates,
-    addCrew, toggleCrewAvailability, addMember, removeMember, setLead,
+    addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
     inviteUser, setUserRole, setUserStatus,
   }), [authReady, user, reports, crews, staff, signIn, signOut, updatePassword, transitionReport, checkDuplicates,
-       addCrew, toggleCrewAvailability, addMember, removeMember, setLead,
+       addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
        inviteUser, setUserRole, setUserStatus]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

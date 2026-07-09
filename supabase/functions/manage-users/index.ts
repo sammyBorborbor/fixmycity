@@ -8,8 +8,8 @@
 //   set_role   -> change a staffer's console_role (and derived access role).
 //   set_status -> suspend / reactivate (profiles.status).
 //
-// console_role is the 5-value org-chart label; user_role stays the true access
-// boundary — Administrator gates as admin, everyone else as officer.
+// console_role is the org-chart label; user_role stays the true access boundary —
+// Administrator gates as admin, Field Crew as crew (no console), the rest as officer.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -18,13 +18,16 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const CONSOLE_ROLES = ['Administrator', 'Supervisor', 'Officer', 'Dispatcher', 'Viewer'] as const;
+const CONSOLE_ROLES = ['Administrator', 'Supervisor', 'Officer', 'Dispatcher', 'Viewer', 'Field Crew'] as const;
 type ConsoleRole = typeof CONSOLE_ROLES[number];
 
-// The org-chart label collapses onto the 4-value access enum: only Administrator
-// carries admin privileges; the rest operate as officers.
-function accessRole(consoleRole: ConsoleRole): 'admin' | 'officer' {
-  return consoleRole === 'Administrator' ? 'admin' : 'officer';
+// The org-chart label collapses onto the 4-value access enum: Administrator gets
+// admin, Field Crew are field workers (role='crew', gated out of the console),
+// everyone else operates as officers.
+function accessRole(consoleRole: ConsoleRole): 'admin' | 'officer' | 'crew' {
+  if (consoleRole === 'Administrator') return 'admin';
+  if (consoleRole === 'Field Crew') return 'crew';
+  return 'officer';
 }
 
 function json(body: unknown, status = 200) {
@@ -79,22 +82,31 @@ Deno.serve(async (req) => {
         return json({ error: 'a valid console_role is required' }, 400);
       }
 
-      // inviteUserByEmail creates the auth user (firing the profile-bootstrap
-      // trigger, which reads this metadata) and sends the set-password email.
-      // redirectTo lands the invite link on the console's /set-password page
-      // (must be on the project's redirect allow-list — see supabase/config.toml).
-      const redirectTo = typeof body.redirect_to === 'string' ? body.redirect_to : undefined;
-      const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: {
-          full_name: fullName,
-          console_role: consoleRole,
-          unit: unit ?? '',
-          phone: body.phone?.trim() ?? '',
-        },
-        redirectTo,
-      });
+      // Both paths fire the profile-bootstrap trigger, which reads this metadata.
+      const metadata = {
+        full_name: fullName,
+        console_role: consoleRole,
+        unit: unit ?? '',
+        phone: body.phone?.trim() ?? '',
+      };
+      let invited: { user: { id: string } | null };
+      let inviteErr: { message: string } | null;
+      if (accessRole(consoleRole) === 'crew') {
+        // Field Crew have no console/app to log into yet, so create the account
+        // silently (no set-password email). They're notified via the branded
+        // crew-assignment email when assigned to a crew (manage-crews).
+        const res = await admin.auth.admin.createUser({ email, email_confirm: true, user_metadata: metadata });
+        invited = res.data; inviteErr = res.error;
+      } else {
+        // Console staff get a real set-password email. redirectTo lands the link
+        // on the console's /set-password page (must be on the project's redirect
+        // allow-list — see supabase/config.toml).
+        const redirectTo = typeof body.redirect_to === 'string' ? body.redirect_to : undefined;
+        const res = await admin.auth.admin.inviteUserByEmail(email, { data: metadata, redirectTo });
+        invited = res.data; inviteErr = res.error;
+      }
       if (inviteErr || !invited?.user) {
-        return json({ error: inviteErr?.message ?? 'could not send invite' }, 400);
+        return json({ error: inviteErr?.message ?? 'could not create user' }, 400);
       }
 
       // Set the access role (metadata only feeds full_name/console_role/unit via
