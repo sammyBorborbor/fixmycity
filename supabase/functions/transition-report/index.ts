@@ -148,9 +148,12 @@ Deno.serve(async (req) => {
   const status = report.status as Status;
 
   // caller's role (needed for staff-action authorization + the audit actor_role)
-  const { data: profile } = await admin.from('profiles').select('role, console_role').eq('id', user.id).single();
+  const { data: profile } = await admin.from('profiles').select('role, console_role, crew_id').eq('id', user.id).single();
   const role = profile?.role as 'citizen' | 'officer' | 'crew' | 'admin' | undefined;
   const isStaff = role === 'officer' || role === 'admin';
+  // Field crew may progress/resolve reports assigned to THEIR crew (FR-061).
+  const isCrew = role === 'crew';
+  const crewOwnsReport = isCrew && !!profile?.crew_id && report.assigned_crew_id === profile.crew_id;
 
   // Per-console_role action allow-list (mirrors permsFor() in the console store).
   // Dispatchers may only acknowledge/assign; Viewers may act on nothing. Any other
@@ -276,14 +279,17 @@ Deno.serve(async (req) => {
       return apply(status, 'rejected', role!, {}, reason, duplicateOfReportId);
     }
     case 'start': {
-      if (!isStaff) return json({ error: 'staff only' }, 403);
-      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
+      // office staff (per console_role) OR the crew this report is assigned to (FR-061)
+      if (isStaff) { if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403); }
+      else if (isCrew) { if (!crewOwnsReport) return json({ error: 'this report is not assigned to your crew' }, 403); }
+      else return json({ error: 'staff only' }, 403);
       if (status !== 'assigned') return json({ error: 'work can only start on an assigned report' }, 409);
       return apply(status, 'in_progress', role!, {}, note ?? null);
     }
     case 'resolve': {
-      if (!isStaff) return json({ error: 'staff only' }, 403);
-      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
+      if (isStaff) { if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403); }
+      else if (isCrew) { if (!crewOwnsReport) return json({ error: 'this report is not assigned to your crew' }, 403); }
+      else return json({ error: 'staff only' }, 403);
       if (status !== 'in_progress') return json({ error: 'only in-progress reports can be resolved' }, 409);
       return apply(status, 'resolved', role!, {}, note ?? null);
     }

@@ -128,7 +128,7 @@ const ROLE_PERMS: Record<RoleName, Perms> = {
   Officer:       { pages: [...BASE_PAGES],                                             actions: new Set(ALL_ACTIONS), canManageUsers: false, canManageCrews: false, isCrew: false },
   Dispatcher:    { pages: [...BASE_PAGES, '/crews'],                                   actions: new Set(['acknowledge', 'assign'] as TransitionAction[]), canManageUsers: false, canManageCrews: true, isCrew: false },
   Viewer:        { pages: [...BASE_PAGES, '/analytics', '/audit'],                     actions: new Set(),            canManageUsers: false, canManageCrews: false, isCrew: false },
-  'Field Crew':  { pages: ['/my-reports'],                                             actions: new Set(),            canManageUsers: false, canManageCrews: false, isCrew: true },
+  'Field Crew':  { pages: ['/my-reports'],                                             actions: new Set(['in_progress', 'resolve'] as TransitionAction[]), canManageUsers: false, canManageCrews: false, isCrew: true },
 };
 
 export function permsFor(role: RoleName): Perms {

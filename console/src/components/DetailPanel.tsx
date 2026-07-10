@@ -94,7 +94,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset keyed on the open report, mirrors ReportPhoto's effect above
     setDuplicates([]);
-    if (report && !['Resolved', 'Rejected'].includes(report.status)) {
+    if (report && !perms.isCrew && !['Resolved', 'Rejected'].includes(report.status)) {
       checkDuplicates(report.id)
         .then(({ candidates }) => { if (alive) setDuplicates(candidates ?? []); })
         .catch(() => { /* fail soft: leave duplicates empty rather than an unhandled rejection */ });
@@ -127,6 +127,10 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
   const showAck = a.has('acknowledge');
   const showAssign = a.has('assign');
   const showRow2 = a.has('in_progress') || a.has('resolve') || a.has('reject');
+  // show the action bar only when at least one button is actually available for
+  // this role + status (keeps office UX — reject stays visible/greyed — but hides
+  // the empty bar for crew viewing a resolved/rejected report)
+  const barVisible = showAck || showAssign || can.progress || can.resolve || a.has('reject');
 
   return (
     <>
@@ -199,8 +203,8 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
           </div>
         </div>
 
-        {/* action bar — hidden entirely for read-only roles (Viewer, crew) */}
-        {a.size > 0 && (
+        {/* action bar — only when a button is actually available for role + status */}
+        {barVisible && (
         <div className="shrink-0 border-t border-gray-100 bg-white p-4">
           {error && <p className="text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mb-3">{error}</p>}
           {rejectOpen ? (

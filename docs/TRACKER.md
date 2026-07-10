@@ -133,7 +133,12 @@ Supervisor = all but Users; Officer = triage (Inbox/Map/Assignments + full repor
 Dispatcher = Inbox/Map/Assignments/Crews, acknowledge+assign only; Viewer = read-only. `transition-report`
 enforces the per-`console_role` action set; `manage-crews` is limited to Administrator/Supervisor/Dispatcher.
 **Field crew now sign in** to a restricted `/my-reports` shell showing only their assigned reports
-(RLS-enforced), read-only. Crew status updates (FR-061) are the next step.
+(RLS-enforced).
+
+✅ **Crew status updates (FR-061).** From `/my-reports`, field crew mark their own assigned reports
+**Assigned → In Progress → Resolved** (`transition-report` allows `role='crew'` to `start`/`resolve`
+only when `assigned_crew_id` = their crew; acknowledge/assign/reject stay office-only). Each crew
+transition writes the audit row and notifies/emails the citizen like any other, closing the loop.
 
 ---
 
@@ -242,12 +247,17 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Role-based access control (front-end + server-side). A single `permsFor(role)` table in the
+1. Crew status updates (FR-061): from the `/my-reports` shell, field crew mark their own assigned
+   reports Assigned → In Progress → Resolved. `transition-report` lets `role='crew'` `start`/`resolve`
+   only when the report's `assigned_crew_id` matches their crew (acknowledge/assign/reject stay
+   office-only); each transition notifies/emails the citizen. Verified in the UI + direct-API 403s.
+2. Role-based access control (front-end + server-side). A single `permsFor(role)` table in the
    console store gates the nav, per-route guards, and the report action bar, and is re-checked in the
    edge functions so it can't be bypassed: `transition-report` enforces the per-`console_role` action
    set (Dispatcher = acknowledge/assign only, Viewer = none) and `manage-crews` is limited to
-   Administrator/Supervisor/Dispatcher. Field crew now sign in to a restricted read-only `/my-reports`
-   shell showing only their assigned reports. Verified per-role in the UI and via direct-API 403s.
+   Administrator/Supervisor/Dispatcher. Field crew now sign in to a restricted `/my-reports`
+   shell showing only their assigned reports (read-only at this point; FR-061 updates landed next —
+   see entry 1). Verified per-role in the UI and via direct-API 403s.
 2. Crew members are now real users. Added a **Field Crew** console role (invited via Users & Roles
    as `role='crew'`, created silently with no set-password link since there's no crew app yet). The
    Crews page loads real rosters from `profiles.crew_id`; a new admin/officer-gated `manage-crews`
