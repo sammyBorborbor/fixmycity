@@ -247,7 +247,9 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Map screen fills the viewport height (was a fixed 460px), and fixed a Leaflet z-index bug where
+1. Inbox gains category / area / assigned-crew dropdown filters that combine with the status chips
+   (chip counts reflect the active dropdowns); a "Clear filters" reset and a live "N shown" count.
+2. Map screen fills the viewport height (was a fixed 460px), and fixed a Leaflet z-index bug where
    the background map painted over the slide-in detail panel (clipping its text) — the map wrapper
    now `isolate`s its stacking context.
 2. Wired the console TopHeader search: type a reference / location / category / reporter to get a
