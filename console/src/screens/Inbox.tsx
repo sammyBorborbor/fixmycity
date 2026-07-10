@@ -9,9 +9,9 @@ const FILTERS = ['All', 'Submitted', 'Acknowledged', 'Assigned', 'In Progress', 
 const NO_UNREAD = new Set<string>();
 
 export default function Inbox() {
-  const { reports } = useStore();
+  const { reports, settings } = useStore();
   const { openRow, activeId } = useOutletContext<AppOutletContext>();
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState(() => settings.defaultFilter || 'All');
   const unread = NO_UNREAD;
 
   const counts = useMemo(() => {
@@ -37,7 +37,7 @@ export default function Inbox() {
       </div>
 
       {/* table */}
-      <DataTable rows={sorted} openRow={openRow} activeId={activeId} unread={unread} emptyLabel={`No reports in “${filter}”.`} />
+      <DataTable rows={sorted} openRow={openRow} activeId={activeId} unread={unread} compact={settings.compact} emptyLabel={`No reports in “${filter}”.`} />
     </div>
   );
 }

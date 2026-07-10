@@ -8,12 +8,14 @@ interface DataTableProps {
   openRow: (id: string) => void;
   activeId: string | null;
   unread: Set<string>;
+  compact?: boolean;
   emptyLabel?: string;
 }
 
 /* Reports table for the Inbox. `rows` is already filtered + sorted by the
-   caller. */
-export default function DataTable({ rows, openRow, activeId, unread, emptyLabel = 'No reports.' }: DataTableProps) {
+   caller. `compact` (a per-user setting) tightens the row padding. */
+export default function DataTable({ rows, openRow, activeId, unread, compact = false, emptyLabel = 'No reports.' }: DataTableProps) {
+  const cell = compact ? 'px-4 py-1.5' : 'px-4 py-3';
   return (
     <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm overflow-hidden">
       <table className="w-full text-sm">
@@ -31,19 +33,19 @@ export default function DataTable({ rows, openRow, activeId, unread, emptyLabel 
           {rows.map(r => (
             <tr key={r.id} onClick={() => openRow(r.id)}
               className={`border-b border-gray-50 last:border-0 cursor-pointer transition ${activeId === r.id ? 'bg-ocean/5' : 'hover:bg-gray-50'}`}>
-              <td className="px-4 py-3 font-mono text-[13px] text-navy font-medium whitespace-nowrap">
+              <td className={`${cell} font-mono text-[13px] text-navy font-medium whitespace-nowrap`}>
                 <span className="flex items-center gap-1.5">
                   {unread.has(r.id) && <span className="w-2 h-2 rounded-full bg-gold pop-dot" title="New / updated" />}
                   {r.id}
                 </span>
               </td>
-              <td className="px-4 py-3">
-                <span className="flex items-center gap-2 text-ink"><CategoryBadge category={r.category} size={28} />{r.category}</span>
+              <td className={cell}>
+                <span className="flex items-center gap-2 text-ink"><CategoryBadge category={r.category} size={compact ? 22 : 28} />{r.category}</span>
               </td>
-              <td className="px-4 py-3 text-muted whitespace-nowrap">{r.location}</td>
-              <td className="px-4 py-3 text-muted whitespace-nowrap">{relTime(r.timeline[0].timestamp)}</td>
-              <td className="px-4 py-3"><StatusPill status={r.status} /></td>
-              <td className="px-4 py-3 text-muted whitespace-nowrap">{r.crew ? crewName(r.crew) : <span className="text-gray-300">—</span>}</td>
+              <td className={`${cell} text-muted whitespace-nowrap`}>{r.location}</td>
+              <td className={`${cell} text-muted whitespace-nowrap`}>{relTime(r.timeline[0].timestamp)}</td>
+              <td className={cell}><StatusPill status={r.status} /></td>
+              <td className={`${cell} text-muted whitespace-nowrap`}>{r.crew ? crewName(r.crew) : <span className="text-gray-300">—</span>}</td>
             </tr>
           ))}
           {rows.length === 0 && (

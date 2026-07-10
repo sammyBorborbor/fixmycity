@@ -99,14 +99,30 @@ export interface Staff {
 }
 
 export interface Operator {
+  id: string;
   name: string;
   firstName: string;
   email: string;
+  phone: string;
   role: RoleName;
   unit: string;
   initials: string;
   crewId: string | null;
 }
+
+/* ---- Console preferences (persisted per-user on profiles.settings) --------- */
+export interface ConsoleSettings {
+  newReports: boolean;
+  assignments: boolean;
+  escalations: boolean;
+  digest: boolean;
+  compact: boolean;
+  defaultFilter: string;
+}
+export const DEFAULT_SETTINGS: ConsoleSettings = {
+  newReports: true, assignments: true, escalations: true, digest: false,
+  compact: false, defaultFilter: 'All',
+};
 
 /* ---- Permissions (single source of truth; consumed by nav, routes, the report
    action bar, and re-checked server-side in the edge functions) -------------- */
@@ -141,16 +157,19 @@ export interface StoreValue {
   authReady: boolean;
   user: Operator | null;
   perms: Perms;
+  settings: ConsoleSettings;
   reports: Report[];
   crews: Crew[];
   staff: Staff[];
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
+  updateProfile: (fields: { full_name?: string; phone?: string }) => Promise<{ error?: string }>;
+  saveSettings: (partial: Partial<ConsoleSettings>) => Promise<{ error?: string }>;
   transitionReport: (reportId: string, action: TransitionAction, opts?: TransitionOpts) => Promise<{ error?: string }>;
   checkDuplicates: (reportId: string) => Promise<{ candidates?: DuplicateCandidate[]; error?: string }>;
-  addCrew: (c: Omit<Crew, 'id'>) => void;
-  toggleCrewAvailability: (id: string) => void;
+  createCrew: (c: { name: string; dept: string; lead?: string }) => Promise<{ error?: string }>;
+  setCrewAvailability: (crewId: string, available: boolean) => Promise<{ error?: string }>;
   assignCrewMember: (userId: string, crewId: string) => Promise<{ error?: string }>;
   inviteCrewMember: (crewId: string, m: { name: string; email: string }) => Promise<{ error?: string }>;
   removeCrewMember: (userId: string) => Promise<{ error?: string }>;
@@ -344,6 +363,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Real staff directory, loaded from `profiles` (see loadStaff). Writes go
   // through the manage-users edge function, mirroring the report state machine.
   const [staff, setStaff] = useState<Staff[]>([]);
+  // per-user console preferences, loaded from profiles.settings on sign-in
+  const [settings, setSettings] = useState<ConsoleSettings>(DEFAULT_SETTINGS);
 
   // keep crew lookups (used across views) in sync with live crew state
   // eslint-disable-next-line react-hooks/globals -- module-level mirror for crewName/crewById
@@ -410,14 +431,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const role: RoleName = (p.console_role as RoleName | null)
       ?? (p.role === 'admin' ? 'Administrator' : p.role === 'crew' ? 'Field Crew' : 'Officer');
     setUser({
+      id: userId,
       name,
       firstName: name.split(/\s+/)[0],
       email,
+      phone: p.phone ?? '',
       role,
       unit: p.unit || 'Operations',
       initials: initialsOf(name),
       crewId: p.crew_id ?? null,
     });
+    setSettings({ ...DEFAULT_SETTINGS, ...(p.settings as Partial<ConsoleSettings> ?? {}) });
     await loadData();
     return true;
   }, [loadData]);
@@ -537,15 +561,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { candidates };
   }, [reports]);
 
-  /* ---- Crew CRUD (still demo-only, session-local) ---- */
-  const addCrew = useCallback((c: Omit<Crew, 'id'>) => {
-    setCrews(prev => [...prev, { ...c, id: 'crew_' + Date.now() }]);
-  }, []);
-  const toggleCrewAvailability = useCallback((id: string) => {
-    setCrews(prev => prev.map(c => c.id === id ? { ...c, available: !c.available } : c));
-  }, []);
-
-  /* ---- Crew membership (server-side; staff-gated manage-crews function) ---- */
+  /* ---- Crew CRUD + membership (server-side; staff-gated manage-crews function) ---- */
   // Members are real users (profiles.role='crew'/crew_id). Assigning or moving
   // one fires a branded email; every action refetches so rosters stay in sync.
   const runManageCrews = useCallback(async (body: Record<string, unknown>, fallback: string) => {
@@ -573,6 +589,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setLead = useCallback((crewId: string, name: string) =>
     runManageCrews({ action: 'set_lead', crew_id: crewId, name }, 'Could not set the lead.'),
     [runManageCrews]);
+  const createCrew = useCallback((c: { name: string; dept: string; lead?: string }) =>
+    runManageCrews({ action: 'create_crew', name: c.name, department: c.dept, lead_name: c.lead ?? '' },
+      'Could not create the crew.'), [runManageCrews]);
+  const setCrewAvailability = useCallback((crewId: string, available: boolean) =>
+    runManageCrews({ action: 'set_availability', crew_id: crewId, available }, 'Could not update availability.'),
+    [runManageCrews]);
+
+  /* ---- Profile + settings (owner-writable columns via the client grant) ---- */
+  const updateProfile = useCallback(async (fields: { full_name?: string; phone?: string }) => {
+    if (!user) return { error: 'Not signed in.' };
+    const { error } = await supabase.from('profiles').update(fields).eq('id', user.id);
+    if (error) return { error: error.message };
+    setUser(u => u && ({
+      ...u,
+      name: fields.full_name?.trim() || u.name,
+      firstName: (fields.full_name?.trim() || u.name).split(/\s+/)[0],
+      initials: initialsOf(fields.full_name?.trim() || u.name),
+      phone: fields.phone ?? u.phone,
+    }));
+    return {};
+  }, [user]);
+
+  const saveSettings = useCallback(async (partial: Partial<ConsoleSettings>) => {
+    if (!user) return { error: 'Not signed in.' };
+    const next = { ...settings, ...partial };
+    setSettings(next);
+    const { error } = await supabase.from('profiles').update({ settings: next }).eq('id', user.id);
+    return error ? { error: error.message } : {};
+  }, [user, settings]);
 
   /* ---- Staff / user actions (server-side; admin-gated manage-users function) ---- */
   // All three write through the edge function (the client can't touch role /
@@ -611,13 +656,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const perms = useMemo(() => permsFor(user?.role ?? 'Viewer'), [user?.role]);
 
   const value = useMemo<StoreValue>(() => ({
-    authReady, user, perms, reports, crews, staff,
-    signIn, signOut, updatePassword,
+    authReady, user, perms, settings, reports, crews, staff,
+    signIn, signOut, updatePassword, updateProfile, saveSettings,
     transitionReport, checkDuplicates,
-    addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
+    createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
     inviteUser, setUserRole, setUserStatus,
-  }), [authReady, user, perms, reports, crews, staff, signIn, signOut, updatePassword, transitionReport, checkDuplicates,
-       addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
+  }), [authReady, user, perms, settings, reports, crews, staff, signIn, signOut, updatePassword, updateProfile, saveSettings,
+       transitionReport, checkDuplicates,
+       createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
        inviteUser, setUserRole, setUserStatus]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

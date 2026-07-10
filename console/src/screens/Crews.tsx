@@ -4,10 +4,11 @@ import type { Crew, CrewMember } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
 
-const DEPTS = ['Sanitation', 'Drainage', 'Electrical', 'Roads', 'General'];
+// only the crew_department enum values are persistable
+const DEPTS = ['Sanitation', 'Drainage', 'Electrical'];
 
 export default function Crews() {
-  const { crews, staff, reports, addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead } = useStore();
+  const { crews, staff, reports, createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead } = useStore();
 
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: '', dept: 'Sanitation', lead: '' });
@@ -24,11 +25,11 @@ export default function Crews() {
   const count = (c: Crew) => (c.roster ? c.roster.length : c.members || 0);
 
   function submit() {
-    if (!form.name.trim()) return;
-    const lead = form.lead.trim();
-    addCrew({ name: form.name.trim(), dept: form.dept, lead: lead || '—', phone: '—', available: true, roster: [] });
-    setForm({ name: '', dept: 'Sanitation', lead: '' });
-    setAdding(false);
+    if (!form.name.trim() || busy) return;
+    run(() => createCrew({ name: form.name.trim(), dept: form.dept, lead: form.lead.trim() }), () => {
+      setForm({ name: '', dept: 'Sanitation', lead: '' });
+      setAdding(false);
+    });
   }
 
   // Every membership action hits the network; run() guards + surfaces errors.
@@ -82,8 +83,8 @@ export default function Crews() {
           </div>
           <p className="text-[11px] text-muted mt-2">Assign real crew members from the crew card once it's created.</p>
           <div className="flex gap-2 mt-4">
-            <Btn variant="outline" onClick={() => setAdding(false)}>Cancel</Btn>
-            <Btn variant="primary" icon="Check" onClick={submit}>Add crew</Btn>
+            <Btn variant="outline" onClick={() => setAdding(false)} disabled={busy}>Cancel</Btn>
+            <Btn variant="primary" icon="Check" onClick={submit} disabled={busy}>{busy ? 'Adding…' : 'Add crew'}</Btn>
           </div>
         </div>
       )}
@@ -97,8 +98,8 @@ export default function Crews() {
             <div key={c.id} className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-5 flex flex-col">
               <div className="flex items-start justify-between">
                 <span className="w-11 h-11 rounded-xl bg-navy/5 text-navy flex items-center justify-center"><Icon name="Users" size={20} /></span>
-                <button onClick={() => toggleCrewAvailability(c.id)}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 transition ${c.available ? 'bg-green-50 text-green-700 ring-green-200' : 'bg-gray-100 text-gray-500 ring-gray-200'}`}>
+                <button onClick={() => run(() => setCrewAvailability(c.id, !c.available))} disabled={busy}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 transition disabled:opacity-50 ${c.available ? 'bg-green-50 text-green-700 ring-green-200' : 'bg-gray-100 text-gray-500 ring-gray-200'}`}>
                   {c.available ? 'Available' : 'Unavailable'}
                 </button>
               </div>

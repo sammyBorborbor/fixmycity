@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useStore } from '../lib/store.tsx';
+import type { ConsoleSettings } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
 import Btn from '../components/Btn.tsx';
-
-interface NotifState { newReports: boolean; assignments: boolean; escalations: boolean; digest: boolean }
 
 function AdminToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -29,14 +29,15 @@ function Row({ icon, title, sub, children }: { icon: string; title: string; sub?
 /* Settings — reached from the account menu. */
 export default function Settings() {
   const navigate = useNavigate();
-  const [notif, setNotif] = useState<NotifState>({ newReports: true, assignments: true, escalations: true, digest: false });
-  const [compact, setCompact] = useState(false);
-  const [twoFA, setTwoFA] = useState(true);
-  const [defaultFilter, setDefaultFilter] = useState('All');
+  const { settings, saveSettings } = useStore();
+  const [twoFA, setTwoFA] = useState(true); // security section is static (no backend yet)
   const [saved, setSaved] = useState(false);
 
-  const setN = (k: keyof NotifState, v: boolean) => setNotif(n => ({ ...n, [k]: v }));
-  function flash() { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+  // persist a preference to profiles.settings, then flash "saved"
+  const set = (patch: Partial<ConsoleSettings>) => {
+    void saveSettings(patch);
+    setSaved(true); setTimeout(() => setSaved(false), 2000);
+  };
 
   return (
     <div className="p-6 max-w-[760px]">
@@ -47,18 +48,18 @@ export default function Settings() {
       {/* notifications */}
       <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm px-6 py-2 divide-y divide-gray-100">
         <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-4 pb-1">Notifications</p>
-        <Row icon="Inbox" title="New reports" sub="When a citizen submits a report"><AdminToggle on={notif.newReports} onChange={v => { setN('newReports', v); flash(); }} /></Row>
-        <Row icon="UserPlus" title="Assignment updates" sub="When a crew accepts or updates a job"><AdminToggle on={notif.assignments} onChange={v => { setN('assignments', v); flash(); }} /></Row>
-        <Row icon="AlertTriangle" title="Escalations" sub="Reports breaching the resolution target"><AdminToggle on={notif.escalations} onChange={v => { setN('escalations', v); flash(); }} /></Row>
-        <Row icon="Mail" title="Weekly digest" sub="Summary email every Monday"><AdminToggle on={notif.digest} onChange={v => { setN('digest', v); flash(); }} /></Row>
+        <Row icon="Inbox" title="New reports" sub="When a citizen submits a report"><AdminToggle on={settings.newReports} onChange={v => set({ newReports: v })} /></Row>
+        <Row icon="UserPlus" title="Assignment updates" sub="When a crew accepts or updates a job"><AdminToggle on={settings.assignments} onChange={v => set({ assignments: v })} /></Row>
+        <Row icon="AlertTriangle" title="Escalations" sub="Reports breaching the resolution target"><AdminToggle on={settings.escalations} onChange={v => set({ escalations: v })} /></Row>
+        <Row icon="Mail" title="Weekly digest" sub="Summary email every Monday"><AdminToggle on={settings.digest} onChange={v => set({ digest: v })} /></Row>
       </div>
 
       {/* preferences */}
       <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm px-6 py-2 divide-y divide-gray-100 mt-4">
         <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-4 pb-1">Preferences</p>
-        <Row icon="Rows" title="Compact inbox" sub="Denser table rows"><AdminToggle on={compact} onChange={v => { setCompact(v); flash(); }} /></Row>
-        <Row icon="Filter" title="Default inbox filter">
-          <select value={defaultFilter} onChange={e => { setDefaultFilter(e.target.value); flash(); }}
+        <Row icon="Rows" title="Compact inbox" sub="Denser table rows"><AdminToggle on={settings.compact} onChange={v => set({ compact: v })} /></Row>
+        <Row icon="Filter" title="Default inbox filter" sub="The Inbox opens on this filter">
+          <select value={settings.defaultFilter} onChange={e => set({ defaultFilter: e.target.value })}
             className="rounded-lg ring-1 ring-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ocean">
             {['All', 'Submitted', 'Acknowledged', 'Assigned', 'In Progress'].map(f => <option key={f}>{f}</option>)}
           </select>
@@ -69,7 +70,7 @@ export default function Settings() {
       <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm px-6 py-2 divide-y divide-gray-100 mt-4">
         <p className="text-xs font-semibold text-muted uppercase tracking-wide pt-4 pb-1">Security</p>
         <Row icon="Lock" title="Password" sub="Last changed 3 months ago"><Btn variant="outline" size="sm">Change</Btn></Row>
-        <Row icon="ShieldCheck" title="Two-factor authentication" sub={twoFA ? 'Enabled · SMS to 024 •• 1180' : 'Disabled'}><AdminToggle on={twoFA} onChange={v => { setTwoFA(v); flash(); }} /></Row>
+        <Row icon="ShieldCheck" title="Two-factor authentication" sub={twoFA ? 'Enabled · SMS to 024 •• 1180' : 'Disabled'}><AdminToggle on={twoFA} onChange={setTwoFA} /></Row>
         <Row icon="MonitorSmartphone" title="Active sessions" sub="2 devices signed in"><Btn variant="outline" size="sm">Manage</Btn></Row>
       </div>
 

@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
   let body: {
     action?: string;
     user_id?: string; crew_id?: string; full_name?: string; email?: string; name?: string;
+    department?: string; lead_name?: string; phone?: string; available?: boolean;
   };
   try {
     body = await req.json();
@@ -211,6 +212,30 @@ Deno.serve(async (req) => {
       const { crew_id: crewId, name } = body;
       if (!crewId || !name?.trim()) return json({ error: 'crew_id and name are required' }, 400);
       const { error } = await admin.from('crews').update({ lead_name: name.trim() }).eq('id', crewId);
+      if (error) return json({ error: error.message }, 400);
+      return json({ ok: true });
+    }
+
+    case 'create_crew': {
+      const name = body.name?.trim();
+      // department is the crew_department enum; accept a display or raw value
+      const department = (body.department ?? '').toString().trim().toLowerCase();
+      if (!name) return json({ error: 'a crew name is required' }, 400);
+      if (!['sanitation', 'drainage', 'electrical'].includes(department)) {
+        return json({ error: 'department must be Sanitation, Drainage or Electrical' }, 400);
+      }
+      const { data: crew, error } = await admin.from('crews')
+        .insert({ name, department, lead_name: body.lead_name?.trim() || '—', phone: body.phone?.trim() || '—', available: true, member_count: 0 })
+        .select('*').single();
+      if (error) return json({ error: error.message }, 400);
+      return json({ crew });
+    }
+
+    case 'set_availability': {
+      const crewId = body.crew_id;
+      if (!crewId) return json({ error: 'crew_id is required' }, 400);
+      if (typeof body.available !== 'boolean') return json({ error: 'available (boolean) is required' }, 400);
+      const { error } = await admin.from('crews').update({ available: body.available }).eq('id', crewId);
       if (error) return json({ error: error.message }, 400);
       return json({ ok: true });
     }

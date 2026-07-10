@@ -124,7 +124,8 @@ screen; change role; suspend/reactivate (suspended staff are rejected at login).
 ✅ **Crew membership is real** (`manage-crews` edge function, staff-gated): crew members are
 `role='crew'` users invited under the new **Field Crew** role; the Crews page assigns / moves /
 removes them (writing `profiles.crew_id`) and sends a branded crew-assignment email + in-app
-notification. Crew *create* + availability toggle remain demo-only.
+notification. Crew *create* + availability toggle are now persisted too (`manage-crews`
+`create_crew` / `set_availability`).
 
 ✅ **Role-based access control (front-end + server-side).** A single `permsFor(role)` table in the
 console store drives the nav, per-route guards, and the `DetailPanel` action bar, and is re-checked
@@ -203,11 +204,9 @@ or report queueing (network required for all API/storage calls).
 
 These UIs work but mutate session-local state only (labelled in `console/src/lib/store.tsx`):
 
-- **Crew create / availability toggle** — `addCrew` and `toggleCrewAvailability` are still
-  session-local (crew *membership* and lead are now real — see below).
-- **Settings** — entirely local `useState`; "Settings saved" is cosmetic.
-- **Profile** — edit form is a local draft.
 - **TopHeader search box** — placeholder input, no wired handler.
+- **Settings security section** — 2FA / active-sessions / password-change are static UI (no
+  backend). The *preferences* (notification toggles, compact inbox, default filter) are persisted.
 
 ## Cross-cutting / tech debt
 
@@ -231,7 +230,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [ ] Ship the external image-model API and wire `_shared/image-model.ts` — unblocks both AI features (M5).
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
 - [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
-- [ ] Persist console Crew create + availability toggle, Settings, Profile (crew membership is real).
+- [x] Persist console Crew create + availability toggle, Settings prefs, Profile (name/phone).
 - [x] Compute real Analytics values (avg resolution time, resolved-this-week week-over-week delta).
 - [ ] Wire the console search box.
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
@@ -246,7 +245,14 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Real Analytics: the "Avg. resolution time" and "Resolved this week / vs last week" KPIs are now
+1. Persisted the last demo-only console bits. Crew **create** + **availability toggle** are real
+   (new `manage-crews` create_crew / set_availability, staff-gated; create restricted to the 3
+   department enum values). **Profile** is rewired to the logged-in user with name/phone editable +
+   persisted (client update grant). **Settings** preferences persist to a new `profiles.settings`
+   jsonb, and two are wired to behavior — the Inbox opens on the saved default filter and honors
+   compact rows. Security section (2FA/sessions) stays static. Migration
+   `20260710120000_profile_settings.sql`.
+2. Real Analytics: the "Avg. resolution time" and "Resolved this week / vs last week" KPIs are now
    computed from the live status timeline (submitted→resolved span; 7-day windows) instead of the
    hardcoded 3.4d / +2. Verified the rendered values match a direct SQL computation.
 2. Crew status updates (FR-061): from the `/my-reports` shell, field crew mark their own assigned

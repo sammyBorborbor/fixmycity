@@ -102,6 +102,7 @@ export type Database = {
           id: string
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          settings: Json
           status: Database["public"]["Enums"]["profile_status"]
           unit: string | null
         }
@@ -114,6 +115,7 @@ export type Database = {
           id: string
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          settings?: Json
           status?: Database["public"]["Enums"]["profile_status"]
           unit?: string | null
         }
@@ -126,6 +128,7 @@ export type Database = {
           id?: string
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          settings?: Json
           status?: Database["public"]["Enums"]["profile_status"]
           unit?: string | null
         }
