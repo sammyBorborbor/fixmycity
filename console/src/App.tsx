@@ -66,7 +66,7 @@ function AppShell() {
 
       {/* main column */}
       <div className="flex-1 flex flex-col min-w-0">
-        <TopHeader />
+        <TopHeader onOpenReport={openRow} />
         <main ref={mainRef} className="flex-1 overflow-y-auto">
           <Outlet context={{ openRow, activeId: detailId } satisfies AppOutletContext} />
         </main>

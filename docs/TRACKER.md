@@ -204,7 +204,6 @@ or report queueing (network required for all API/storage calls).
 
 These UIs work but mutate session-local state only (labelled in `console/src/lib/store.tsx`):
 
-- **TopHeader search box** — placeholder input, no wired handler.
 - **Settings security section** — 2FA / active-sessions / password-change are static UI (no
   backend). The *preferences* (notification toggles, compact inbox, default filter) are persisted.
 
@@ -235,7 +234,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
 - [x] Persist console Crew create + availability toggle, Settings prefs, Profile (name/phone).
 - [x] Compute real Analytics values (avg resolution time, resolved-this-week week-over-week delta).
-- [ ] Wire the console search box.
+- [x] Wire the console search box (jump-to-report by reference / location / category / reporter).
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
 - [ ] Offline report queueing (runtimeCaching / background sync) for the citizen PWA.
 - [~] Test suite: Vitest unit tests done (console pure logic); edge-function (Deno) + Playwright E2E left.
@@ -248,7 +247,10 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Test suite (console Vitest, `yarn test`): 37 unit tests over the RBAC matrix (`permsFor`), the
+1. Wired the console TopHeader search: type a reference / location / category / reporter to get a
+   live dropdown of matching reports; picking one opens its detail panel from any page. Also fixed
+   the account chip + menu to show the logged-in user instead of hardcoded "Akua O.".
+2. Test suite (console Vitest, `yarn test`): 37 unit tests over the RBAC matrix (`permsFor`), the
    report action-availability rules, Analytics resolution metrics, and store helpers. Extracted two
    inline computations into pure, testable modules (`lib/metrics.ts`, `lib/reportActions.ts`) and
    refactored Analytics/DetailPanel to use them. Edge-function (Deno) + Playwright E2E still to do.
