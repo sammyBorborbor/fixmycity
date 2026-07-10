@@ -8,6 +8,7 @@ import Timeline from './Timeline.tsx';
 import LeafletMap from './LeafletMap.tsx';
 import { useStore, crewName, crewById, fmtDate } from '../lib/store.tsx';
 import type { DuplicateCandidate, Report, TransitionAction, TransitionOpts } from '../lib/store.tsx';
+import { availableActions } from '../lib/reportActions.ts';
 import { signedPhotoUrl } from '../lib/supabase.ts';
 
 const REJECT_REASONS = ['Outside AWMA jurisdiction (private property)', 'Duplicate of an existing report', 'Insufficient information', 'Not a valid issue'];
@@ -117,13 +118,7 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
 
   // action availability = valid for the report's status AND permitted for this role
   const a = perms.actions;
-  const can = {
-    ack: (report.status === 'Submitted' || report.status === 'Reopened') && a.has('acknowledge'),
-    assign: ['Acknowledged', 'Reopened', 'Submitted'].includes(report.status) && a.has('assign'),
-    progress: report.status === 'Assigned' && a.has('in_progress'),
-    resolve: report.status === 'In Progress' && a.has('resolve'),
-    reject: !['Resolved', 'Rejected'].includes(report.status) && a.has('reject'),
-  };
+  const can = availableActions(report.status, a);
   const showAck = a.has('acknowledge');
   const showAssign = a.has('assign');
   const showRow2 = a.has('in_progress') || a.has('resolve') || a.has('reject');

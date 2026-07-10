@@ -210,7 +210,10 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 ## Cross-cutting / tech debt
 
-- **No tests** — no backend/edge-function tests, no Vitest or Playwright suite yet.
+- **Tests** — console has a Vitest unit suite (`console/`, `yarn test`) covering the RBAC matrix
+  (`permsFor`), the report action-availability rules (`reportActions`), Analytics resolution
+  metrics, and store helpers. Still missing: edge-function (Deno) tests for the state machine and
+  Playwright E2E.
 - Citizen `Profile` notification/push toggles are local-only (not persisted).
 - **Manual hosted-project config (staff invite).** `supabase/config.toml` + `supabase/templates/`
   are the source of truth, but the hosted project applies auth email templates and the redirect
@@ -235,7 +238,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [ ] Wire the console search box.
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
 - [ ] Offline report queueing (runtimeCaching / background sync) for the citizen PWA.
-- [ ] Test suite: Vitest unit tests + Playwright E2E.
+- [~] Test suite: Vitest unit tests done (console pure logic); edge-function (Deno) + Playwright E2E left.
 - [ ] Deploy the console to Vercel (citizen is live); set up GitHub Actions CI.
 - [ ] Refresh the stale top-level README.
 
@@ -245,7 +248,11 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Persisted the last demo-only console bits. Crew **create** + **availability toggle** are real
+1. Test suite (console Vitest, `yarn test`): 37 unit tests over the RBAC matrix (`permsFor`), the
+   report action-availability rules, Analytics resolution metrics, and store helpers. Extracted two
+   inline computations into pure, testable modules (`lib/metrics.ts`, `lib/reportActions.ts`) and
+   refactored Analytics/DetailPanel to use them. Edge-function (Deno) + Playwright E2E still to do.
+2. Persisted the last demo-only console bits. Crew **create** + **availability toggle** are real
    (new `manage-crews` create_crew / set_availability, staff-gated; create restricted to the 3
    department enum values). **Profile** is rewired to the logged-in user with name/phone editable +
    persisted (client update grant). **Settings** preferences persist to a new `profiles.settings`
