@@ -24,8 +24,31 @@ export default function Analytics() {
 
   const byCat = (Object.keys(CATEGORIES) as CategoryName[]).map(c => ({ name: c, n: reports.filter(r => r.category === c).length }));
   const maxCat = Math.max(1, ...byCat.map(c => c.n));
-  const resolvedWeek = reports.filter(r => r.status === 'Resolved').length;
   const backlog = reports.filter(r => !['Resolved', 'Rejected'].includes(r.status)).length;
+
+  // Real resolution metrics from the status timeline: submitted -> resolved span
+  // (avg resolution time), and resolved-count this week vs last (week-over-week).
+  const DAY = 86_400_000;
+  const { avgResLabel, resolvedThisWeek, resolvedDelta } = useMemo(() => {
+    const submittedTs = (r: typeof reports[number]) =>
+      new Date((r.timeline.find(t => t.status === 'Submitted') ?? r.timeline[0]).timestamp).getTime();
+    const resolvedTs = (r: typeof reports[number]) => {
+      const e = r.timeline.find(t => t.status === 'Resolved');
+      return e ? new Date(e.timestamp).getTime() : null;
+    };
+    const resolved = reports.filter(r => r.status === 'Resolved');
+    const spans = resolved.map(r => { const rt = resolvedTs(r); return rt ? (rt - submittedTs(r)) / DAY : null; })
+      .filter((x): x is number => x !== null && x >= 0);
+    const avg = spans.length ? spans.reduce((a, b) => a + b, 0) / spans.length : null;
+    const resolvedInWindow = (lo: number, hi: number) => resolved.filter(r => {
+      const rt = resolvedTs(r); if (rt === null) return false;
+      const age = (Date.now() - rt) / DAY; return age >= lo && age < hi;
+    }).length;
+    const thisWeek = resolvedInWindow(0, 7);
+    const delta = thisWeek - resolvedInWindow(7, 14);
+    return { avgResLabel: avg === null ? '—' : avg.toFixed(1) + 'd', resolvedThisWeek: thisWeek, resolvedDelta: delta };
+  }, [reports]);
+  const deltaLabel = `${resolvedDelta >= 0 ? '+' : ''}${resolvedDelta} vs last week`;
 
   // reports over last 6 "weeks" buckets from submitted timestamps
   const weeks = useMemo(() => [0, 1, 2, 3, 4, 5].map(w => {
@@ -42,8 +65,8 @@ export default function Analytics() {
 
       <div className="grid grid-cols-4 gap-4">
         <Kpi label="Total reports" value={reports.length} sub="All time" icon="FileText" accent="#1E5F8E" />
-        <Kpi label="Resolved this week" value={resolvedWeek} sub="+2 vs last week" icon="CheckCheck" accent="#16A34A" />
-        <Kpi label="Avg. resolution time" value="3.4d" sub="Target: 5 days" icon="Clock" accent="#C8932F" />
+        <Kpi label="Resolved this week" value={resolvedThisWeek} sub={deltaLabel} icon="CheckCheck" accent="#16A34A" />
+        <Kpi label="Avg. resolution time" value={avgResLabel} sub="Target: 5 days" icon="Clock" accent="#C8932F" />
         <Kpi label="Open backlog" value={backlog} sub="Needs action" icon="Layers" accent="#0B2545" />
       </div>
 

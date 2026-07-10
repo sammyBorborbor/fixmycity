@@ -207,7 +207,6 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
   session-local (crew *membership* and lead are now real — see below).
 - **Settings** — entirely local `useState`; "Settings saved" is cosmetic.
 - **Profile** — edit form is a local draft.
-- **Analytics** — "Avg. resolution time 3.4d" and "+2 vs last week" are hardcoded, not computed.
 - **TopHeader search box** — placeholder input, no wired handler.
 
 ## Cross-cutting / tech debt
@@ -233,7 +232,7 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
 - [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
 - [ ] Persist console Crew create + availability toggle, Settings, Profile (crew membership is real).
-- [ ] Compute real Analytics values (avg resolution time, week-over-week deltas).
+- [x] Compute real Analytics values (avg resolution time, resolved-this-week week-over-week delta).
 - [ ] Wire the console search box.
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
 - [ ] Offline report queueing (runtimeCaching / background sync) for the citizen PWA.
@@ -247,7 +246,10 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Crew status updates (FR-061): from the `/my-reports` shell, field crew mark their own assigned
+1. Real Analytics: the "Avg. resolution time" and "Resolved this week / vs last week" KPIs are now
+   computed from the live status timeline (submitted→resolved span; 7-day windows) instead of the
+   hardcoded 3.4d / +2. Verified the rendered values match a direct SQL computation.
+2. Crew status updates (FR-061): from the `/my-reports` shell, field crew mark their own assigned
    reports Assigned → In Progress → Resolved. `transition-report` lets `role='crew'` `start`/`resolve`
    only when the report's `assigned_crew_id` matches their crew (acknowledge/assign/reject stay
    office-only); each transition notifies/emails the citizen. Verified in the UI + direct-API 403s.
