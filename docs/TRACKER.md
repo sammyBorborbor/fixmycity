@@ -247,7 +247,10 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Wired the console TopHeader search: type a reference / location / category / reporter to get a
+1. Map screen fills the viewport height (was a fixed 460px), and fixed a Leaflet z-index bug where
+   the background map painted over the slide-in detail panel (clipping its text) — the map wrapper
+   now `isolate`s its stacking context.
+2. Wired the console TopHeader search: type a reference / location / category / reporter to get a
    live dropdown of matching reports; picking one opens its detail panel from any page. Also fixed
    the account chip + menu to show the logged-in user instead of hardcoded "Akua O.".
 2. Test suite (console Vitest, `yarn test`): 37 unit tests over the RBAC matrix (`permsFor`), the

@@ -9,7 +9,7 @@ interface LeafletMapProps {
   reports: Report[];
   onPin?: (r: Report) => void;
   activeId?: string | null;
-  height?: number;
+  height?: number | string;
   rounded?: string;
 }
 
@@ -43,7 +43,10 @@ function pinIcon(color: string, active: boolean): L.DivIcon {
    Same props shape as the old MapPlaceholder, so call sites barely change. */
 export default function LeafletMap({ reports, onPin, activeId, height = 320, rounded = 'rounded-xl' }: LeafletMapProps) {
   return (
-    <div className={`relative w-full overflow-hidden ${rounded} ring-1 ring-black/5`} style={{ height }}>
+    // `isolate` traps Leaflet's high internal z-indices (panes/controls up to 1000)
+    // in their own stacking context so the map can't paint over overlays like the
+    // slide-in detail panel or the header search dropdown.
+    <div className={`relative isolate w-full overflow-hidden ${rounded} ring-1 ring-black/5`} style={{ height }}>
       <MapContainer
         center={AYAWASO_WEST_CENTER}
         zoom={DEFAULT_ZOOM}
