@@ -109,7 +109,7 @@ async function sendTransitionEmail(to: string, subject: string, html: string, te
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ from: 'FixMyCity <noreply@fixmycity.gov.gh>', to, subject, html, text }),
+    body: JSON.stringify({ from: 'FixMyCity <fixmycity@aseda-pos.byte24systems.com>', to, subject, html, text }),
   });
   if (!res.ok) throw new Error(`resend returned ${res.status}: ${await res.text()}`);
 }
