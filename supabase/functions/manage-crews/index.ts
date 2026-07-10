@@ -152,9 +152,14 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Gate: any console staff (officer/admin) may manage crew membership.
-  const { data: caller } = await admin.from('profiles').select('role').eq('id', user.id).single();
-  if (caller?.role !== 'officer' && caller?.role !== 'admin') return json({ error: 'staff only' }, 403);
+  // Gate: crew management is limited to Administrator / Supervisor / Dispatcher
+  // (mirrors permsFor().canManageCrews). admin user_role always qualifies; other
+  // office staff must carry one of those console_roles. Officer/Viewer -> 403.
+  const { data: caller } = await admin.from('profiles').select('role, console_role').eq('id', user.id).single();
+  const CAN_MANAGE = ['Administrator', 'Supervisor', 'Dispatcher'];
+  const mayManage = caller?.role === 'admin'
+    || (caller?.role === 'officer' && CAN_MANAGE.includes(caller?.console_role as string));
+  if (!mayManage) return json({ error: 'not permitted to manage crews' }, 403);
 
   switch (action) {
     case 'add_member': {

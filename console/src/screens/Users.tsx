@@ -15,8 +15,8 @@ const roleStyle: Record<RoleName, string> = {
 interface InviteForm { name: string; email: string; role: RoleName; unit: string }
 
 export default function Users() {
-  const { user, staff, inviteUser, setUserRole, setUserStatus } = useStore();
-  const isAdmin = user?.role === 'Administrator';
+  const { user, perms, staff, inviteUser, setUserRole, setUserStatus } = useStore();
+  const isAdmin = perms.canManageUsers;
   const [inviting, setInviting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

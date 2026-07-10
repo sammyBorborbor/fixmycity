@@ -148,9 +148,23 @@ Deno.serve(async (req) => {
   const status = report.status as Status;
 
   // caller's role (needed for staff-action authorization + the audit actor_role)
-  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single();
+  const { data: profile } = await admin.from('profiles').select('role, console_role').eq('id', user.id).single();
   const role = profile?.role as 'citizen' | 'officer' | 'crew' | 'admin' | undefined;
   const isStaff = role === 'officer' || role === 'admin';
+
+  // Per-console_role action allow-list (mirrors permsFor() in the console store).
+  // Dispatchers may only acknowledge/assign; Viewers may act on nothing. Any other
+  // office role (Administrator/Supervisor/Officer, or a staff account with no
+  // console_role set) keeps the full set.
+  const consoleRole = profile?.console_role as string | null;
+  const ACTIONS_BY_CONSOLE_ROLE: Record<string, string[]> = {
+    Dispatcher: ['acknowledge', 'assign'],
+    Viewer: [],
+  };
+  const roleAllows = (action: string) =>
+    !consoleRole || !(consoleRole in ACTIONS_BY_CONSOLE_ROLE)
+      ? true
+      : ACTIONS_BY_CONSOLE_ROLE[consoleRole].includes(action);
 
   // resolve a transition: validate legality, then apply status + audit + notify atomically
   async function apply(
@@ -234,11 +248,13 @@ Deno.serve(async (req) => {
     /* ---- staff ---- */
     case 'acknowledge': {
       if (!isStaff) return json({ error: 'staff only' }, 403);
+      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
       if (status !== 'submitted' && status !== 'reopened') return json({ error: 'can only acknowledge a submitted or reopened report' }, 409);
       return apply(status, 'acknowledged', role!, {}, note ?? null);
     }
     case 'assign': {
       if (!isStaff) return json({ error: 'staff only' }, 403);
+      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
       if (!['submitted', 'acknowledged', 'reopened'].includes(status)) return json({ error: 'this report cannot be assigned in its current state' }, 409);
       if (!crewId) return json({ error: 'crew_id is required to assign' }, 400);
       const { data: crew } = await admin.from('crews').select('available').eq('id', crewId).single();
@@ -248,6 +264,7 @@ Deno.serve(async (req) => {
     }
     case 'reject': {
       if (!isStaff) return json({ error: 'staff only' }, 403);
+      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
       if (status === 'resolved' || status === 'rejected') return json({ error: 'this report cannot be rejected in its current state' }, 409);
       if (!reason) return json({ error: 'a reason is required to reject' }, 400);
       let duplicateOfReportId: string | null = null;
@@ -260,11 +277,13 @@ Deno.serve(async (req) => {
     }
     case 'start': {
       if (!isStaff) return json({ error: 'staff only' }, 403);
+      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
       if (status !== 'assigned') return json({ error: 'work can only start on an assigned report' }, 409);
       return apply(status, 'in_progress', role!, {}, note ?? null);
     }
     case 'resolve': {
       if (!isStaff) return json({ error: 'staff only' }, 403);
+      if (!roleAllows(action!)) return json({ error: 'your role cannot perform this action' }, 403);
       if (status !== 'in_progress') return json({ error: 'only in-progress reports can be resolved' }, 409);
       return apply(status, 'resolved', role!, {}, note ?? null);
     }

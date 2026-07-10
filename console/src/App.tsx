@@ -8,6 +8,7 @@ import DetailPanel from './components/DetailPanel.tsx';
 
 import Login from './screens/Login.tsx';
 import SetPassword from './screens/SetPassword.tsx';
+import CrewReports from './screens/CrewReports.tsx';
 import Inbox from './screens/Inbox.tsx';
 import MapView from './screens/MapView.tsx';
 import Assignments from './screens/Assignments.tsx';
@@ -24,13 +25,20 @@ export interface AppOutletContext {
   activeId: string | null;
 }
 
-/* Auth guard — everything below /login requires a signed-in staff user. Waits
-   for the session restore so a reload doesn't bounce through /login. */
+/* Auth guard — everything below /login requires a signed-in user. Waits for the
+   session restore so a reload doesn't bounce through /login. */
 function RequireAuth({ children }: { children: ReactElement }) {
   const { user, authReady } = useStore();
   if (!authReady) return <div className="w-full h-[100dvh] bg-paper" />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
+}
+
+/* Per-page role guard: redirect to Inbox if the signed-in role may not open this
+   path (defends against typing a URL the nav hides). Mirrors permsFor(). */
+function RequireRole({ path, children }: { path: string; children: ReactElement }) {
+  const { perms } = useStore();
+  return perms.pages.includes(path) ? children : <Navigate to="/" replace />;
 }
 
 /* Shared authed shell: nav rail + top header + scrollable screen area, with
@@ -70,23 +78,48 @@ function AppShell() {
   );
 }
 
+/* Field crew get a restricted single-page shell (their assigned reports only). */
+function CrewApp() {
+  return (
+    <Routes>
+      <Route path="/my-reports" element={<CrewReports />} />
+      <Route path="*" element={<Navigate to="/my-reports" replace />} />
+    </Routes>
+  );
+}
+
+/* Office staff get the full console, each page wrapped in RequireRole. */
+function OfficeApp() {
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route path="/" element={<Inbox />} />
+        <Route path="/map" element={<RequireRole path="/map"><MapView /></RequireRole>} />
+        <Route path="/assignments" element={<RequireRole path="/assignments"><Assignments /></RequireRole>} />
+        <Route path="/crews" element={<RequireRole path="/crews"><Crews /></RequireRole>} />
+        <Route path="/analytics" element={<RequireRole path="/analytics"><Analytics /></RequireRole>} />
+        <Route path="/users" element={<RequireRole path="/users"><Users /></RequireRole>} />
+        <Route path="/audit" element={<RequireRole path="/audit"><AuditLog /></RequireRole>} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+/* Pick the shell by role once authed. */
+function AuthedApp() {
+  const { perms } = useStore();
+  return perms.isCrew ? <CrewApp /> : <OfficeApp />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/set-password" element={<SetPassword />} />
-      <Route element={<RequireAuth><AppShell /></RequireAuth>}>
-        <Route path="/" element={<Inbox />} />
-        <Route path="/map" element={<MapView />} />
-        <Route path="/assignments" element={<Assignments />} />
-        <Route path="/crews" element={<Crews />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/users" element={<Users />} />
-        <Route path="/audit" element={<AuditLog />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/*" element={<RequireAuth><AuthedApp /></RequireAuth>} />
     </Routes>
   );
 }

@@ -58,7 +58,8 @@ Administrator) · Progressive Web App.
 
 - Citizen: `signIn` / `signUp` (email confirmation via `/auth/callback`) / `signOut`,
   session bootstrap + `onAuthStateChange`.
-- Console: role-gated — only `officer` / `admin` may sign in; others are signed back out
+- Console: role-gated — `officer` / `admin` get the office console, `crew` get a restricted
+  `/my-reports` shell; `citizen` and suspended accounts are signed back out (see M3 RBAC)
   with a "staff only" message. No sign-up (staff invited).
 
 ✅ **Citizen submission is live end-to-end:** capture **1–5 photos** (camera or gallery
@@ -118,13 +119,21 @@ the live `reports` + joined `status_transitions`.
 ✅ **Users & Roles is real** (`manage-users` edge function, admin-gated): invite staff via
 `inviteUserByEmail` with a branded set-password email landing on the console `/set-password`
 screen; change role; suspend/reactivate (suspended staff are rejected at login). Adds
-`console_role` / `unit` / `email` to `profiles`. The 5 office roles are a directory label;
-`user_role` stays the access boundary.
+`console_role` / `unit` / `email` to `profiles`.
 
 ✅ **Crew membership is real** (`manage-crews` edge function, staff-gated): crew members are
 `role='crew'` users invited under the new **Field Crew** role; the Crews page assigns / moves /
 removes them (writing `profiles.crew_id`) and sends a branded crew-assignment email + in-app
 notification. Crew *create* + availability toggle remain demo-only.
+
+✅ **Role-based access control (front-end + server-side).** A single `permsFor(role)` table in the
+console store drives the nav, per-route guards, and the `DetailPanel` action bar, and is re-checked
+in the edge functions so it can't be bypassed. Matrix: Administrator = everything incl. Users;
+Supervisor = all but Users; Officer = triage (Inbox/Map/Assignments + full report actions);
+Dispatcher = Inbox/Map/Assignments/Crews, acknowledge+assign only; Viewer = read-only. `transition-report`
+enforces the per-`console_role` action set; `manage-crews` is limited to Administrator/Supervisor/Dispatcher.
+**Field crew now sign in** to a restricted `/my-reports` shell showing only their assigned reports
+(RLS-enforced), read-only. Crew status updates (FR-061) are the next step.
 
 ---
 
@@ -233,7 +242,13 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Crew members are now real users. Added a **Field Crew** console role (invited via Users & Roles
+1. Role-based access control (front-end + server-side). A single `permsFor(role)` table in the
+   console store gates the nav, per-route guards, and the report action bar, and is re-checked in the
+   edge functions so it can't be bypassed: `transition-report` enforces the per-`console_role` action
+   set (Dispatcher = acknowledge/assign only, Viewer = none) and `manage-crews` is limited to
+   Administrator/Supervisor/Dispatcher. Field crew now sign in to a restricted read-only `/my-reports`
+   shell showing only their assigned reports. Verified per-role in the UI and via direct-API 403s.
+2. Crew members are now real users. Added a **Field Crew** console role (invited via Users & Roles
    as `role='crew'`, created silently with no set-password link since there's no crew app yet). The
    Crews page loads real rosters from `profiles.crew_id`; a new admin/officer-gated `manage-crews`
    edge function handles assign / move / remove / set-lead, and assigning or moving a member sends a
@@ -247,8 +262,8 @@ Distilled from git history:
 2. Console Users & Roles is now real: new `manage-users` edge function (admin-gated) invites staff
    via `inviteUserByEmail` and persists role / suspend changes; `profiles` gained `console_role`,
    `unit`, `email` columns (migration `20260709120000_staff_directory.sql`); the console loads the
-   staff list from `profiles` and suspended staff are rejected at login. The 5 console roles remain
-   a directory label, not enforced permissions.
+   staff list from `profiles` and suspended staff are rejected at login. (The 5 console roles were a
+   directory label at this point; role-based enforcement landed later — see entry 1.)
 2. Citizen My Reports — empty-state card ("No reports yet") when the list is empty, mirroring
    the Home empty state, instead of a blank page.
 2. Forgot-password / reset flow — login "Forgot password?" view + `/reset-password` screen.

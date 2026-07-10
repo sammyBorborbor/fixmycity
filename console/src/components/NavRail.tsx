@@ -14,10 +14,12 @@ const NAV: NavItem[] = [
   { to: '/audit',       label: 'Audit Log',   icon: 'ScrollText' },
 ];
 
-/* Left navigation rail. */
+/* Left navigation rail. Items are filtered to the pages the signed-in role may
+   open (see permsFor in the store) — the matching route guard is in App.tsx. */
 export default function NavRail() {
-  const { reports } = useStore();
+  const { reports, perms } = useStore();
   const inboxCount = reports.filter(r => ['Submitted', 'Reopened'].includes(r.status)).length;
+  const items = NAV.filter(n => perms.pages.includes(n.to));
 
   return (
     <nav className="shrink-0 w-60 bg-navy text-white flex flex-col">
@@ -26,7 +28,7 @@ export default function NavRail() {
         <div><p className="font-bold leading-tight">FixMyCity</p><p className="text-[11px] text-white/50">Operations console</p></div>
       </div>
       <div className="flex-1 py-3">
-        {NAV.map(n => (
+        {items.map(n => (
           <NavLink key={n.to} to={n.to} end={n.end}
             className={({ isActive }) => `w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition relative ${isActive ? 'text-white bg-white/10' : 'text-white/60 hover:text-white hover:bg-white/5'}`}>
             {({ isActive }) => (

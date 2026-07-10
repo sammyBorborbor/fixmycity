@@ -68,7 +68,7 @@ function ReportPhotos({ report, className = '', style = {} }: {
 
 /* Slide-in report detail + action panel. */
 export default function DetailPanel({ report, onClose }: { report: Report | null; onClose: () => void }) {
-  const { transitionReport, checkDuplicates, crews } = useStore();
+  const { transitionReport, checkDuplicates, crews, perms } = useStore();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [reason, setReason] = useState(REJECT_REASONS[0]);
@@ -115,13 +115,18 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
     setAssignOpen(false);
   }
 
+  // action availability = valid for the report's status AND permitted for this role
+  const a = perms.actions;
   const can = {
-    ack: report.status === 'Submitted' || report.status === 'Reopened',
-    assign: ['Acknowledged', 'Reopened', 'Submitted'].includes(report.status),
-    progress: report.status === 'Assigned',
-    resolve: report.status === 'In Progress',
-    reject: !['Resolved', 'Rejected'].includes(report.status),
+    ack: (report.status === 'Submitted' || report.status === 'Reopened') && a.has('acknowledge'),
+    assign: ['Acknowledged', 'Reopened', 'Submitted'].includes(report.status) && a.has('assign'),
+    progress: report.status === 'Assigned' && a.has('in_progress'),
+    resolve: report.status === 'In Progress' && a.has('resolve'),
+    reject: !['Resolved', 'Rejected'].includes(report.status) && a.has('reject'),
   };
+  const showAck = a.has('acknowledge');
+  const showAssign = a.has('assign');
+  const showRow2 = a.has('in_progress') || a.has('resolve') || a.has('reject');
 
   return (
     <>
@@ -194,7 +199,8 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
           </div>
         </div>
 
-        {/* action bar */}
+        {/* action bar — hidden entirely for read-only roles (Viewer, crew) */}
+        {a.size > 0 && (
         <div className="shrink-0 border-t border-gray-100 bg-white p-4">
           {error && <p className="text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mb-3">{error}</p>}
           {rejectOpen ? (
@@ -233,18 +239,23 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <Btn variant="primary" className="flex-1" icon="CheckCircle2" disabled={!can.ack || busy} onClick={() => act('acknowledge')}>Acknowledge</Btn>
-                <Btn variant="ocean" className="flex-1" icon="UserPlus" disabled={!can.assign || busy} onClick={() => setAssignOpen(true)}>Assign</Btn>
-              </div>
-              <div className="flex gap-2">
-                {can.progress && <Btn variant="gold" className="flex-1" icon="Play" disabled={busy} onClick={() => act('in_progress')}>Mark in progress</Btn>}
-                {can.resolve && <Btn variant="green" className="flex-1" icon="CheckCheck" disabled={busy} onClick={() => act('resolve')}>Mark resolved</Btn>}
-                <Btn variant="danger" className={can.progress || can.resolve ? '' : 'flex-1'} icon="Ban" disabled={!can.reject || busy} onClick={() => setRejectOpen(true)}>Reject</Btn>
-              </div>
+              {(showAck || showAssign) && (
+                <div className="flex gap-2">
+                  {showAck && <Btn variant="primary" className="flex-1" icon="CheckCircle2" disabled={!can.ack || busy} onClick={() => act('acknowledge')}>Acknowledge</Btn>}
+                  {showAssign && <Btn variant="ocean" className="flex-1" icon="UserPlus" disabled={!can.assign || busy} onClick={() => setAssignOpen(true)}>Assign</Btn>}
+                </div>
+              )}
+              {showRow2 && (
+                <div className="flex gap-2">
+                  {can.progress && <Btn variant="gold" className="flex-1" icon="Play" disabled={busy} onClick={() => act('in_progress')}>Mark in progress</Btn>}
+                  {can.resolve && <Btn variant="green" className="flex-1" icon="CheckCheck" disabled={busy} onClick={() => act('resolve')}>Mark resolved</Btn>}
+                  {a.has('reject') && <Btn variant="danger" className={can.progress || can.resolve ? '' : 'flex-1'} icon="Ban" disabled={!can.reject || busy} onClick={() => setRejectOpen(true)}>Reject</Btn>}
+                </div>
+              )}
             </div>
           )}
         </div>
+        )}
       </aside>
     </>
   );

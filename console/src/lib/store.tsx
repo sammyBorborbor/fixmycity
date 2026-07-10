@@ -105,6 +105,34 @@ export interface Operator {
   role: RoleName;
   unit: string;
   initials: string;
+  crewId: string | null;
+}
+
+/* ---- Permissions (single source of truth; consumed by nav, routes, the report
+   action bar, and re-checked server-side in the edge functions) -------------- */
+export interface Perms {
+  pages: string[];                       // nav/route paths this role may open
+  actions: Set<TransitionAction>;        // report transitions allowed (empty = read-only)
+  canManageUsers: boolean;
+  canManageCrews: boolean;
+  isCrew: boolean;
+}
+
+const ALL_ACTIONS: TransitionAction[] = ['acknowledge', 'assign', 'reject', 'in_progress', 'resolve'];
+// personal pages every office role can reach
+const BASE_PAGES = ['/', '/map', '/assignments', '/profile', '/settings'];
+
+const ROLE_PERMS: Record<RoleName, Perms> = {
+  Administrator: { pages: [...BASE_PAGES, '/crews', '/analytics', '/users', '/audit'], actions: new Set(ALL_ACTIONS), canManageUsers: true,  canManageCrews: true,  isCrew: false },
+  Supervisor:    { pages: [...BASE_PAGES, '/crews', '/analytics', '/audit'],           actions: new Set(ALL_ACTIONS), canManageUsers: false, canManageCrews: true,  isCrew: false },
+  Officer:       { pages: [...BASE_PAGES],                                             actions: new Set(ALL_ACTIONS), canManageUsers: false, canManageCrews: false, isCrew: false },
+  Dispatcher:    { pages: [...BASE_PAGES, '/crews'],                                   actions: new Set(['acknowledge', 'assign'] as TransitionAction[]), canManageUsers: false, canManageCrews: true, isCrew: false },
+  Viewer:        { pages: [...BASE_PAGES, '/analytics', '/audit'],                     actions: new Set(),            canManageUsers: false, canManageCrews: false, isCrew: false },
+  'Field Crew':  { pages: ['/my-reports'],                                             actions: new Set(),            canManageUsers: false, canManageCrews: false, isCrew: true },
+};
+
+export function permsFor(role: RoleName): Perms {
+  return ROLE_PERMS[role] ?? ROLE_PERMS.Viewer;
 }
 
 export interface TransitionOpts { note?: string; crewId?: string; reason?: string; duplicateOfId?: string }
@@ -112,6 +140,7 @@ export interface TransitionOpts { note?: string; crewId?: string; reason?: strin
 export interface StoreValue {
   authReady: boolean;
   user: Operator | null;
+  perms: Perms;
   reports: Report[];
   crews: Crew[];
   staff: Staff[];
@@ -369,20 +398,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setReports((reportRows ?? []).map(r => mapReport(r, names)));
   }, [loadStaff]);
 
-  /* Session bootstrap + role gate: only active officer/admin may use the console. */
+  /* Session bootstrap + role gate: active office staff (officer/admin) and field
+     crew may use the console; citizens and suspended accounts are rejected. Crew
+     land on a restricted assigned-reports view (see App shell + perms). */
   const applySession = useCallback(async (userId: string, email: string): Promise<boolean> => {
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
     const p = profile as ProfileRow | null;
-    if (!p || (p.role !== 'officer' && p.role !== 'admin')) return false;
+    if (!p || (p.role !== 'officer' && p.role !== 'admin' && p.role !== 'crew')) return false;
     if (p.status === 'suspended') return false;
     const name = p.full_name || email;
+    const role: RoleName = (p.console_role as RoleName | null)
+      ?? (p.role === 'admin' ? 'Administrator' : p.role === 'crew' ? 'Field Crew' : 'Officer');
     setUser({
       name,
       firstName: name.split(/\s+/)[0],
       email,
-      role: (p.console_role as RoleName | null) ?? (p.role === 'admin' ? 'Administrator' : 'Officer'),
+      role,
       unit: p.unit || 'Operations',
       initials: initialsOf(name),
+      crewId: p.crew_id ?? null,
     });
     await loadData();
     return true;
@@ -574,13 +608,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     runManageUsers({ action: 'set_status', user_id: id, active }, 'Could not update the status.'),
     [runManageUsers]);
 
+  const perms = useMemo(() => permsFor(user?.role ?? 'Viewer'), [user?.role]);
+
   const value = useMemo<StoreValue>(() => ({
-    authReady, user, reports, crews, staff,
+    authReady, user, perms, reports, crews, staff,
     signIn, signOut, updatePassword,
     transitionReport, checkDuplicates,
     addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
     inviteUser, setUserRole, setUserStatus,
-  }), [authReady, user, reports, crews, staff, signIn, signOut, updatePassword, transitionReport, checkDuplicates,
+  }), [authReady, user, perms, reports, crews, staff, signIn, signOut, updatePassword, transitionReport, checkDuplicates,
        addCrew, toggleCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
        inviteUser, setUserRole, setUserStatus]);
 
