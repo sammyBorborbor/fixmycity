@@ -163,7 +163,7 @@ export default function ReportFlow() {
                 location={location}
                 onLocationChange={setLocation}
                 onPositionChange={(lat, lng) => setPosition({ lat, lng })}
-                height={160}
+                height={220}
               />
             </div>
             <div className="mt-1.5 flex items-center gap-2 bg-white rounded-xl ring-1 ring-black/5 px-3 py-2">
