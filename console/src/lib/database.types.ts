@@ -152,12 +152,16 @@ export type Database = {
           category: Database["public"]["Enums"]["report_category"]
           created_at: string
           description: string
+          detected_objects: Json | null
+          duplicate_status: string | null
           embedding: string | null
+          external_report_id: number | null
           id: string
           lat: number
           lng: number
           location: unknown
           location_name: string
+          perceptual_hash: string | null
           photo_urls: string[]
           reference: string
           reporter_id: string
@@ -172,12 +176,16 @@ export type Database = {
           category: Database["public"]["Enums"]["report_category"]
           created_at?: string
           description?: string
+          detected_objects?: Json | null
+          duplicate_status?: string | null
           embedding?: string | null
+          external_report_id?: number | null
           id?: string
           lat?: number
           lng?: number
           location: unknown
           location_name: string
+          perceptual_hash?: string | null
           photo_urls?: string[]
           reference?: string
           reporter_id: string
@@ -192,12 +200,16 @@ export type Database = {
           category?: Database["public"]["Enums"]["report_category"]
           created_at?: string
           description?: string
+          detected_objects?: Json | null
+          duplicate_status?: string | null
           embedding?: string | null
+          external_report_id?: number | null
           id?: string
           lat?: number
           lng?: number
           location?: unknown
           location_name?: string
+          perceptual_hash?: string | null
           photo_urls?: string[]
           reference?: string
           reporter_id?: string

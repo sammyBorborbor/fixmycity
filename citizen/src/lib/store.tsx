@@ -11,7 +11,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from './supabase.ts';
-import { compressImage, blobToBase64 } from './image.ts';
+import { compressImage } from './image.ts';
 import type { Tables } from './database.types.ts';
 
 /* ---- Domain types (UI-facing; display names, not DB enum values) -------- */
@@ -75,11 +75,7 @@ export interface ReportDraft {
   lng: number;
   description: string;
   photos: File[];             // 1-5 photos
-  aiSuggestedCategory?: CategoryName;
-  aiConfidence?: number;
 }
-
-export interface AiSuggestion { category: CategoryName; confidence: number }
 
 export interface CitizenUser { name: string; firstName: string; email: string }
 
@@ -105,7 +101,6 @@ export interface StoreValue {
   sendPasswordReset: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
   submitReport: (draft: ReportDraft) => Promise<{ report?: Report; error?: string }>;
-  classifyImage: (photo: File) => Promise<{ suggestion?: AiSuggestion; error?: string }>;
   reopenReport: (id: string) => Promise<{ error?: string }>;
   cancelReport: (id: string) => Promise<{ error?: string }>;
   markAllRead: () => Promise<void>;
@@ -422,8 +417,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lng: draft.lng,
           description: draft.description,
           photo_paths: paths,
-          ai_suggested_category: draft.aiSuggestedCategory ? CATEGORY_TO_DB[draft.aiSuggestedCategory] : undefined,
-          ai_confidence: draft.aiConfidence,
         },
       });
       if (error) return { error: await describeError(error) };
@@ -438,26 +431,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [uid, user, refresh]);
 
-  // AI feature 1 (CLAUDE.md): suggests a category from the photo so the citizen
-  // can pre-fill/override before submitting. Fails soft — a classification
-  // error should never block picking a photo or submitting the report.
-  const classifyImage = useCallback(async (photo: File): Promise<{ suggestion?: AiSuggestion; error?: string }> => {
-    try {
-      const blob = await compressImage(photo, 768, 0.6); // smaller/faster than the final upload compression
-      const base64 = await blobToBase64(blob);
-      const { data, error } = await supabase.functions.invoke('classify-image', {
-        body: { image_base64: base64, mime_type: 'image/webp' },
-      });
-      if (error) return { error: await describeError(error) };
-      const c = data?.classification as { category?: keyof typeof DB_TO_CATEGORY; confidence?: number } | undefined;
-      if (!c?.category || !(c.category in DB_TO_CATEGORY) || !Number.isFinite(c.confidence)) {
-        return { error: 'unrecognized classification' };
-      }
-      return { suggestion: { category: DB_TO_CATEGORY[c.category], confidence: c.confidence! } };
-    } catch (e) {
-      return { error: await describeError(e) };
-    }
-  }, []);
+  // AI feature 1 (auto-categorisation) now runs server-side at submission time
+  // via the external CV service (see submit-report); there is no longer a
+  // stateless pre-submission classify call. The inferred category is stored on
+  // the report (ai_suggested_category) and surfaced to officers in the console.
 
   const reopenReport = useCallback(async (id: string): Promise<{ error?: string }> => {
     const target = reports.find(r => r.id === id);
@@ -494,9 +471,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, notifications, unreadCount,
-    signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, classifyImage, reopenReport, cancelReport, markAllRead,
+    signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, reopenReport, cancelReport, markAllRead,
   }), [authReady, user, reports, crews, notifications, unreadCount,
-       signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, classifyImage, reopenReport, cancelReport, markAllRead]);
+       signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, reopenReport, cancelReport, markAllRead]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

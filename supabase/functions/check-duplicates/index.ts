@@ -1,8 +1,11 @@
-// check-duplicates — AI feature 2 (CLAUDE.md): PostGIS proximity+time filter,
-// then pgvector cosine similarity on `reports.embedding`, so the console can
-// show officers "possible duplicate of FMC-..." chips. Officer/admin only —
-// citizens have no reason to see other reporters' candidate duplicates.
+// check-duplicates — AI feature 2 (CLAUDE.md): duplicate detection runs in the
+// external CV service (perceptual-hash matching against its own image corpus).
+// This proxies the CV API's /duplicates for a report and maps the CV service's
+// own integer report ids back to our rows, so the console can show officers
+// "possible duplicate of FMC-..." chips. Officer/admin only — citizens have no
+// reason to see other reporters' candidate duplicates.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { fetchCvDuplicates } from '../_shared/image-model.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,13 +50,51 @@ Deno.serve(async (req) => {
   const role = profile?.role as 'citizen' | 'officer' | 'crew' | 'admin' | undefined;
   if (role !== 'officer' && role !== 'admin') return json({ error: 'staff only' }, 403);
 
-  const { data: report } = await admin.from('reports').select('id').eq('id', reportId).single();
+  const { data: report } = await admin
+    .from('reports')
+    .select('id, external_report_id')
+    .eq('id', reportId)
+    .single();
   if (!report) return json({ error: 'report not found' }, 404);
+  // No CV id means the CV service never processed this report (older row, or the
+  // service was down at submission) — nothing to check against.
+  if (report.external_report_id == null) return json({ candidates: [] });
 
-  const { data: candidates, error: rpcErr } = await admin.rpc('find_duplicate_candidates', {
-    p_report_id: reportId,
-  });
-  if (rpcErr) return json({ error: rpcErr.message }, 500);
+  // Ask the CV service for its own duplicate candidates (by its integer id).
+  let cvDuplicates;
+  try {
+    cvDuplicates = await fetchCvDuplicates(report.external_report_id as number);
+  } catch (e) {
+    console.error('CV API /duplicates failed:', e);
+    return json({ error: 'Could not check for duplicates.' }, 502);
+  }
+  if (cvDuplicates.length === 0) return json({ candidates: [] });
 
-  return json({ candidates: candidates ?? [] });
+  // Map the CV service's integer ids back to OUR rows. We surface only reports
+  // that exist on our side, using our own reference/category/status/photo.
+  const simByExternalId = new Map<number, number | null>(cvDuplicates.map((d) => [d.externalId, d.similarity]));
+  const { data: rows } = await admin
+    .from('reports')
+    .select('id, reference, category, location_name, status, photo_urls, external_report_id')
+    .in('external_report_id', cvDuplicates.map((d) => d.externalId))
+    .neq('id', reportId); // never flag a report as a duplicate of itself
+
+  const candidates = (rows ?? [])
+    .map((r) => ({
+      id: r.id,
+      reference: r.reference,
+      category: r.category,
+      location_name: r.location_name,
+      status: r.status,
+      photo_path: (r.photo_urls as string[] | null)?.[0] ?? null,
+      // CV dedup isn't proximity-based; distance_m is unused by the console chip.
+      // similarity is the CV confidence when present; treat a missing score as
+      // high-confidence since the service returned it as a duplicate at all.
+      similarity: simByExternalId.get(r.external_report_id as number) ?? 1,
+      distance_m: 0,
+    }))
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 3);
+
+  return json({ candidates });
 });

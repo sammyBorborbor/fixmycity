@@ -11,7 +11,7 @@ update the relevant line here.
 Dumping, Blocked Drain, Broken Streetlight) · 4 roles (Citizen, Officer, Field Crew,
 Administrator) · Progressive Web App.
 
-**Last updated:** 2026-07-09
+**Last updated:** 2026-07-15
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -25,7 +25,7 @@ Administrator) · Progressive Web App.
 | M2 — Auth + citizen submission end-to-end | ✅ |
 | M3 — State machine + console wiring | ✅ |
 | M4 — Notifications (realtime + email) | ✅ (no web push) |
-| M5 — AI features (classify + duplicates) | 🔒 wired, blocked on image model |
+| M5 — AI features (classify + duplicates) | 🟡 integrated with external CV API (submit-time); needs live-contract confirmation |
 | M6 — PWA + Leaflet maps + deploy | ✅ / 🟡 (offline shell-only) |
 
 ---
@@ -159,20 +159,36 @@ the fallback this iteration.
 
 ## M5 — AI features
 
-🔒 **Both features are fully wired end-to-end and fail-soft, but blocked on the external
-image model.**
+🟡 **Integrated with the teammate's external CV service (the "DID Backend").** That service
+is stateful and owns classification + duplicate detection: `submit-report` POSTs the main
+photo to `POST /api/v1/reports`, and the service stores the image in its own container,
+dedupes it (perceptual hash) against everything there, validates it's a genuine
+environmental concern, and returns the verdicts. `_shared/image-model.ts` is now the
+anti-corruption client that translates its vocabulary to ours.
 
-- **Auto-categorisation** (`classify-image`): citizen app calls it after photo pick to
-  pre-fill category (`citizen/src/lib/store.tsx`), user can override.
-- **Duplicate detection** (`check-duplicates`): officer/admin-only; PostGIS `ST_DWithin`
-  proximity + 7-day window, then pgvector cosine ranking via `find_duplicate_candidates()`
-  RPC; surfaced as "possible duplicate" chips in the console DetailPanel, feeds
-  reject-as-duplicate.
+- **Auto-categorisation:** runs server-side at submission time. The CV `cv_inferred_category`
+  is mapped to our 3 categories and stored on the report (`ai_suggested_category` /
+  `ai_confidence`), shown to officers in the console DetailPanel. The pre-submission "AI
+  suggests X / Use this" chip is **removed** (the CV service has no stateless classify
+  endpoint); `classify-image` is kept but dormant (returns 501).
+- **Validity gate:** a "not an environmental concern" verdict (selfie/junk) **blocks
+  submission** with a retake message (input validation) — except for `streetlight`, which
+  the CV model has no class for and can't judge (safeguard in `submit-report`).
+- **Duplicate detection** (`check-duplicates`): officer/admin-only; now proxies the CV
+  service's own `GET /api/v1/reports/{id}/duplicates` and maps its integer ids back to our
+  rows via `reports.external_report_id`. The pgvector `find_duplicate_candidates()` path is
+  **dormant** (columns/index kept, not dropped). Surfaced unchanged as the console
+  "possible duplicate" chips, feeds reject-as-duplicate.
+- **Schema:** migration `20260715120000_external_cv_api.sql` adds `external_report_id`,
+  `duplicate_status`, `detected_objects`, `perceptual_hash` to `reports`.
+- **Config:** `IMAGE_MODEL_URL` = the CV API base URL; `IMAGE_MODEL_API_KEY` optional.
 
-**Blocker:** `supabase/functions/_shared/image-model.ts` is a `TODO(image-model)`
-placeholder — request/response shape and embedding dimension are assumed, and it needs
-`IMAGE_MODEL_URL` / `IMAGE_MODEL_API_KEY`. Until a teammate ships that API, no real category
-or embedding output is produced (so duplicate ranking has no vectors to compare).
+**Still to confirm against the live service (see `TODO(cv-api)` in `_shared/image-model.ts`):**
+(1) the exact "not environmental" signal — we currently read the returned report's
+`status === 'rejected'`; (2) that `duplicate_of_report_id` / `/duplicates` use the CV
+service's own integer ids; (3) whether a `streetlight` class can be added; (4) a **stable
+host** (the dev URL is an ngrok tunnel that rotates); (5) optionally a stateless
+`POST /classify` to restore the pre-fill chip.
 
 ---
 
@@ -229,7 +245,9 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [x] Brand the confirm-signup + password-reset auth email templates (M2).
 - [x] Wire the citizen "Forgot password?" flow: `resetPasswordForEmail` + `/reset-password`
   update-password screen (needs `/reset-password` added to the Supabase redirect allowlist).
-- [ ] Ship the external image-model API and wire `_shared/image-model.ts` — unblocks both AI features (M5).
+- [~] External CV API wired into `_shared/image-model.ts` (submit-time classify + dedup + validity, M5).
+  Remaining: confirm the live contract (invalid-photo signal, id semantics), a `streetlight` class,
+  and a stable host — see M5 `TODO(cv-api)`.
 - [ ] Add `supabase/seed.sql` (config already expects it) (M1).
 - [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
 - [x] Persist console Crew create + availability toggle, Settings prefs, Profile (name/phone).
@@ -247,7 +265,22 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Inbox gains category / area / assigned-crew dropdown filters that combine with the status chips
+1. Console Users & Roles UX: role changes and suspends now go through a reusable
+   confirm dialog (`console/src/components/ConfirmDialog.tsx`) before firing, and every
+   action reports its outcome via a new app-wide toast host (`console/src/components/Toast.tsx`,
+   mounted in `main.tsx`) — success ("X is now an Administrator" / "suspended" /
+   "Invite sent to …") and errors alike. Added per-row "Saving…" busy state, a "You" chip
+   on the admin's own row, and moved invite errors inline. No store/edge-function changes.
+
+2. Integrated the teammate's external CV service (the "DID Backend") for M5. `submit-report` now
+   POSTs the main photo to the service, which classifies it, dedupes it, and validates it's an
+   environmental concern; a "not environmental" verdict blocks submission with a retake message
+   (streetlight exempted). `check-duplicates` proxies the service's own `/duplicates`; the pgvector
+   path is dormant. New migration adds `external_report_id` / `duplicate_status` / `detected_objects`
+   / `perceptual_hash`. The pre-submission classify chip was removed (`classify-image` kept but
+   dormant). `_shared/image-model.ts` rewritten as the CV-API anti-corruption client. Several live
+   contract details still need teammate confirmation (see M5).
+2. Inbox gains category / area / assigned-crew dropdown filters that combine with the status chips
    (chip counts reflect the active dropdowns); a "Clear filters" reset and a live "N shown" count.
 2. Map screen fills the viewport height (was a fixed 460px), and fixed a Leaflet z-index bug where
    the background map painted over the slide-in detail panel (clipping its text) — the map wrapper
