@@ -8,13 +8,16 @@ import './index.css';
 
 import App from './App.tsx';
 import { StoreProvider } from './lib/store.tsx';
+import { ToastProvider } from './components/Toast.tsx';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <StoreProvider>
-        <App />
-        <Analytics />
+        <ToastProvider>
+          <App />
+          <Analytics />
+        </ToastProvider>
       </StoreProvider>
     </BrowserRouter>
   </React.StrictMode>

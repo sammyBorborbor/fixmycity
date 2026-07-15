@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useStore, ROLES, UNITS } from '../lib/store.tsx';
-import type { RoleName } from '../lib/store.tsx';
+import type { RoleName, Staff } from '../lib/store.tsx';
 import Btn from '../components/Btn.tsx';
+import ConfirmDialog from '../components/ConfirmDialog.tsx';
+import { useToast } from '../components/Toast.tsx';
 
 const roleStyle: Record<RoleName, string> = {
   Administrator: 'bg-navy/10 text-navy ring-navy/20',
@@ -12,37 +14,62 @@ const roleStyle: Record<RoleName, string> = {
   'Field Crew': 'bg-green-50 text-green-700 ring-green-200',
 };
 
+/* "an Administrator" / "a Supervisor" — for friendlier toast copy. */
+const article = (role: string) => (/^[AEIOU]/i.test(role) ? 'an' : 'a');
+
 interface InviteForm { name: string; email: string; role: RoleName; unit: string }
+
+/* A role change or a suspend queued behind the confirm dialog. */
+type Pending =
+  | { kind: 'role'; user: Staff; nextRole: RoleName }
+  | { kind: 'status'; user: Staff; nextActive: boolean };
 
 export default function Users() {
   const { user, perms, staff, inviteUser, setUserRole, setUserStatus } = useStore();
+  const toast = useToast();
   const isAdmin = perms.canManageUsers;
   const [inviting, setInviting] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);          // invite form in flight
+  const [busyId, setBusyId] = useState<string | null>(null); // row action in flight
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<Pending | null>(null);
   const [form, setForm] = useState<InviteForm>({ name: '', email: '', role: 'Officer', unit: UNITS[0] });
 
   async function invite() {
     if (!form.name.trim() || !form.email.trim() || busy) return;
     setBusy(true);
-    setError(null);
+    setInviteError(null);
     const { error } = await inviteUser(form);
     setBusy(false);
-    if (error) { setError(error); return; }
+    if (error) { setInviteError(error); return; }
+    toast.success(`Invite sent to ${form.email.trim()}`);
     setForm({ name: '', email: '', role: 'Officer', unit: UNITS[0] });
     setInviting(false);
   }
 
-  async function changeRole(id: string, role: RoleName) {
-    setError(null);
-    const { error } = await setUserRole(id, role);
-    if (error) setError(error);
+  /* Runs the queued role/suspend action once the admin confirms. */
+  async function runConfirmed() {
+    if (!confirm) return;
+    const p = confirm;
+    setBusyId(p.user.id);
+    const { error } = p.kind === 'role'
+      ? await setUserRole(p.user.id, p.nextRole)
+      : await setUserStatus(p.user.id, p.nextActive);
+    setBusyId(null);
+    setConfirm(null);
+    if (error) { toast.error(error); return; }
+    toast.success(p.kind === 'role'
+      ? `${p.user.name} is now ${article(p.nextRole)} ${p.nextRole}`
+      : `${p.user.name} has been suspended`);
   }
 
-  async function changeStatus(id: string, active: boolean) {
-    setError(null);
-    const { error } = await setUserStatus(id, active);
-    if (error) setError(error);
+  /* Reactivation is low-risk, so it stays one-click (no confirm dialog). */
+  async function reactivate(u: Staff) {
+    setBusyId(u.id);
+    const { error } = await setUserStatus(u.id, true);
+    setBusyId(null);
+    if (error) { toast.error(error); return; }
+    toast.success(`${u.name} has been reactivated`);
   }
 
   return (
@@ -50,14 +77,10 @@ export default function Users() {
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold text-navy">Users &amp; Roles</h1>
         {isAdmin && (
-          <Btn variant="primary" icon="UserPlus" onClick={() => { setError(null); setInviting(i => !i); }}>Invite user</Btn>
+          <Btn variant="primary" icon="UserPlus" onClick={() => { setInviteError(null); setInviting(i => !i); }}>Invite user</Btn>
         )}
       </div>
       <p className="text-sm text-muted mb-5">{staff.length} staff accounts · {staff.filter(u => u.active).length} active</p>
-
-      {error && (
-        <div className="bg-red-50 text-red-700 ring-1 ring-red-200 rounded-xl px-4 py-3 text-sm mb-5">{error}</div>
-      )}
 
       {inviting && isAdmin && (
         <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-5 mb-5 fade-in">
@@ -88,6 +111,9 @@ export default function Users() {
               </select>
             </div>
           </div>
+          {inviteError && (
+            <div className="mt-3 bg-red-50 text-red-700 ring-1 ring-red-200 rounded-xl px-4 py-2.5 text-sm">{inviteError}</div>
+          )}
           <div className="flex gap-2 mt-4">
             <Btn variant="outline" onClick={() => setInviting(false)} disabled={busy}>Cancel</Btn>
             <Btn variant="primary" icon="Send" onClick={invite} disabled={busy}>{busy ? 'Sending…' : 'Send invite'}</Btn>
@@ -107,7 +133,10 @@ export default function Users() {
             </tr>
           </thead>
           <tbody>
-            {staff.map(u => (
+            {staff.map(u => {
+              const rowBusy = busyId === u.id;
+              const isSelf = u.email === user?.email;
+              return (
               <tr key={u.id} className="border-b border-gray-50 last:border-0">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -117,9 +146,13 @@ export default function Users() {
                 </td>
                 <td className="px-4 py-3 text-muted">{u.unit}</td>
                 <td className="px-4 py-3">
-                  {isAdmin ? (
-                    <select value={u.role} onChange={e => changeRole(u.id, e.target.value as RoleName)}
-                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-inset focus:outline-none cursor-pointer ${roleStyle[u.role] || roleStyle.Viewer}`}>
+                  {isAdmin && !isSelf ? (
+                    <select value={u.role} disabled={rowBusy}
+                      onChange={e => {
+                        const nextRole = e.target.value as RoleName;
+                        if (nextRole !== u.role) setConfirm({ kind: 'role', user: u, nextRole });
+                      }}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-inset focus:outline-none cursor-pointer disabled:opacity-60 disabled:cursor-wait ${roleStyle[u.role] || roleStyle.Viewer}`}>
                       {ROLES.map(r => <option key={r}>{r}</option>)}
                     </select>
                   ) : (
@@ -132,19 +165,54 @@ export default function Users() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {isAdmin && u.email !== user?.email ? (
-                    <button onClick={() => changeStatus(u.id, !u.active)} className="text-xs font-semibold text-ocean hover:underline">
-                      {u.active ? 'Suspend' : 'Reactivate'}
-                    </button>
+                  {isSelf ? (
+                    <span className="text-xs font-semibold text-muted bg-gray-100 px-2 py-0.5 rounded-full">You</span>
+                  ) : isAdmin ? (
+                    rowBusy ? (
+                      <span className="text-xs text-muted">Saving…</span>
+                    ) : (
+                      <button
+                        onClick={() => u.active
+                          ? setConfirm({ kind: 'status', user: u, nextActive: false })
+                          : reactivate(u)}
+                        className="text-xs font-semibold text-ocean hover:underline">
+                        {u.active ? 'Suspend' : 'Reactivate'}
+                      </button>
+                    )
                   ) : (
                     <span className="text-xs text-gray-300">—</span>
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {confirm && (
+        <ConfirmDialog
+          title={confirm.kind === 'role' ? 'Change this role?' : 'Suspend this account?'}
+          variant={confirm.kind === 'status' ? 'danger' : 'primary'}
+          confirmLabel={confirm.kind === 'role' ? 'Change role' : 'Suspend account'}
+          busy={busyId === confirm.user.id}
+          onCancel={() => setConfirm(null)}
+          onConfirm={runConfirmed}
+          body={confirm.kind === 'role' ? (
+            <>
+              <span className="font-semibold text-ink">{confirm.user.name}</span> will change from{' '}
+              <span className="font-semibold">{confirm.user.role}</span> to{' '}
+              <span className="font-semibold">{confirm.nextRole}</span>. This immediately updates what
+              they can see and do in the console.
+            </>
+          ) : (
+            <>
+              Suspending <span className="font-semibold text-ink">{confirm.user.name}</span> immediately
+              revokes their access to the console. You can reactivate them at any time.
+            </>
+          )}
+        />
+      )}
     </div>
   );
 }
