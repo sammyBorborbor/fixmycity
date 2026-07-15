@@ -58,7 +58,7 @@ export function cvApiConfigured(): boolean {
 function cvBaseUrl(): string {
   const url = Deno.env.get('IMAGE_MODEL_URL');
   if (!url) throw new Error('IMAGE_MODEL_URL is not configured');
-  return url.replace(/\/+$/, ''); // strip trailing slashes; paths are appended
+  return url.replace(/[/]+$/, ''); // strip trailing slashes; paths are appended
 }
 function authHeader(): Record<string, string> {
   const apiKey = Deno.env.get('IMAGE_MODEL_API_KEY');
