@@ -61,6 +61,20 @@ function authHeader(): Record<string, string> {
   return apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 }
 
+// The CV API validates the uploaded file's EXTENSION (from the multipart
+// filename), not just its content type — a filename without an extension is
+// rejected with "Uploaded image extension is not allowed". Our citizen photos
+// are WebP; map the mime type to an allowed extension (webp and jpg both work).
+function extForMime(mime: string): string {
+  const map: Record<string, string> = {
+    'image/webp': 'webp',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+  };
+  return map[(mime || '').toLowerCase()] ?? 'jpg';
+}
+
 // The CV service wraps every response in this envelope (confirmed against the
 // live API — the OpenAPI spec misleadingly documents the bare ReportRead).
 interface CvEnvelope<T> {
@@ -124,7 +138,7 @@ export async function submitToCvApi(input: CvSubmitInput): Promise<CvSubmitResul
   form.append('latitude', String(input.lat));
   form.append('longitude', String(input.lng));
   if (input.description) form.append('description', input.description);
-  form.append('image', new Blob([input.imageBytes], { type: input.mimeType }), 'photo');
+  form.append('image', new Blob([input.imageBytes], { type: input.mimeType }), `photo.${extForMime(input.mimeType)}`);
 
   const res = await fetch(`${cvBaseUrl()}/api/v1/reports`, {
     method: 'POST',
