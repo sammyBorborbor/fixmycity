@@ -65,6 +65,21 @@ function authHeader(): Record<string, string> {
   return apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 }
 
+// The citizen waits on this call inline (submit-report awaits it before creating
+// the report), so a hung model must not freeze the submit. Bound every CV request
+// so a slow/stuck service aborts and falls through to fail-soft quickly.
+const CV_TIMEOUT_MS = 8000;
+
+async function cvFetch(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CV_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // The CV API validates the uploaded file's EXTENSION (from the multipart
 // filename), not just its content type — a filename without an extension is
 // rejected with "Uploaded image extension is not allowed". Our citizen photos
@@ -144,7 +159,7 @@ export async function submitToCvApi(input: CvSubmitInput): Promise<CvSubmitResul
   if (input.description) form.append('description', input.description);
   form.append('image', new Blob([input.imageBytes], { type: input.mimeType }), `photo.${extForMime(input.mimeType)}`);
 
-  const res = await fetch(`${cvBaseUrl()}/api/v1/reports`, {
+  const res = await cvFetch(`${cvBaseUrl()}/api/v1/reports`, {
     method: 'POST',
     headers: { ...authHeader() }, // do NOT set content-type: fetch sets the multipart boundary
     body: form,
@@ -200,7 +215,7 @@ export interface CvDuplicate {
 export async function fetchCvDuplicates(externalId: number): Promise<CvDuplicate[]> {
   // TODO(cv-api): confirm the /duplicates response returns the CV API's own
   // integer report ids so external_report_id reverse-mapping works.
-  const res = await fetch(`${cvBaseUrl()}/api/v1/reports/${externalId}/duplicates`, {
+  const res = await cvFetch(`${cvBaseUrl()}/api/v1/reports/${externalId}/duplicates`, {
     method: 'GET',
     headers: { ...authHeader() },
   });
