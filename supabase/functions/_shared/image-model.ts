@@ -37,7 +37,11 @@ const THEIR_TO_OUR: Record<string, string> = {
 const OUR_TO_THEIR: Record<string, string> = {
   dumping: 'refuse_dump',
   drain: 'blocked_drain',
-  streetlight: 'other', // no streetlight class exists CV-side (see submit-report safeguard)
+  // their enum has no true streetlight class; broken_public_facility is the
+  // closest fit, so a submitted streetlight report is recorded meaningfully on
+  // their side (their model still can't visually detect streetlights, hence the
+  // not-environmental safeguard in submit-report).
+  streetlight: 'broken_public_facility',
 };
 
 export function ourCategoryToTheirs(category: string): string {
