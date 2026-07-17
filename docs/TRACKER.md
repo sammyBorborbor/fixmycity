@@ -11,7 +11,7 @@ update the relevant line here.
 Dumping, Blocked Drain, Broken Streetlight) · 4 roles (Citizen, Officer, Field Crew,
 Administrator) · Progressive Web App.
 
-**Last updated:** 2026-07-15
+**Last updated:** 2026-07-17
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -69,6 +69,16 @@ validated row (`photo_urls text[]`) + initial `submitted` transition + returned 
 number. 3-step `ReportFlow` UI. Photos shown as a main image + thumbnail strip in the report
 detail (citizen + console) and a first-photo thumbnail in list cards. The AI category
 suggestion runs on the first photo.
+
+✅ **AWMA jurisdiction gate:** reports must fall inside Ayawaso West. `submit-report` rejects
+out-of-bounds points server-side (`422 { code: 'outside_awma' }`) against the real OSM admin
+polygon (relation 12759086, committed at `data/awma-boundary.geojson`) widened by a ~500 m
+edge tolerance — the raw polygon excludes 3 of the 8 pilot neighbourhoods (Abelemkpe, Airport
+Residential, Roman Ridge) by 100–400 m. Shared `pointInAwma` helper (ray-cast + point-to-edge
+distance) in `supabase/functions/_shared/awma-boundary.ts` and `citizen/src/lib/awma-boundary.ts`
+(byte-identical, generated from the GeoJSON). The citizen `ReportFlow` also warns + disables
+Submit when the pin leaves AWMA; the server stays the source of truth. Unit-tested (Vitest, now
+set up in the citizen app too): all 8 neighbourhoods pass, out-of-area points fail.
 
 ✅ **Email confirmation redirect fixed & committed** (`935ce24`): signup verification links
 were routing to the hosted project's default `localhost:3000` Site URL. Now `signUp` passes
@@ -265,7 +275,14 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Console Users & Roles UX: role changes and suspends now go through a reusable
+1. AWMA jurisdiction gate on report location. `submit-report` now rejects any point outside
+   Ayawaso West (`422 outside_awma`) against the real OSM boundary polygon
+   (`data/awma-boundary.geojson`) + a ~500 m tolerance so all 8 pilot neighbourhoods still
+   qualify. New shared `pointInAwma` helper (client + edge copies, generated from the GeoJSON),
+   citizen `ReportFlow` warn + Submit-disable when the pin is outside, and Vitest set up in the
+   citizen app with unit tests for the boundary. Replaces the old loose Greater-Accra bbox.
+
+2. Console Users & Roles UX: role changes and suspends now go through a reusable
    confirm dialog (`console/src/components/ConfirmDialog.tsx`) before firing, and every
    action reports its outcome via a new app-wide toast host (`console/src/components/Toast.tsx`,
    mounted in `main.tsx`) — success ("X is now an Administrator" / "suspended" /

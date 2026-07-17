@@ -4,6 +4,7 @@
 // trigger) plus the initial Submitted transition, and returns the new row.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { submitToCvApi, cvApiConfigured } from '../_shared/image-model.ts';
+import { pointInAwma } from '../_shared/awma-boundary.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,9 +51,18 @@ Deno.serve(async (req) => {
   if (!CATEGORIES.includes(category)) return json({ error: 'invalid category' }, 400);
   if (!locationName || locationName.length > 120) return json({ error: 'invalid location_name' }, 400);
   if (description.length > 2000) return json({ error: 'description too long' }, 400);
-  // loose Greater Accra bounding box
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < 4 || lat > 12 || lng < -4 || lng > 2) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return json({ error: 'invalid coordinates' }, 400);
+  }
+  // jurisdiction gate: the pilot only serves Ayawaso West Municipal Assembly, so
+  // reject any point outside AWMA's boundary (polygon + ~500 m tolerance). This is
+  // the authoritative check — the citizen app also warns/blocks, but the server is
+  // the source of truth (clients never place a report outside jurisdiction).
+  if (!pointInAwma(lat, lng)) {
+    return json({
+      error: 'This location is outside Ayawaso West Municipal Assembly. Reports must be inside the municipality.',
+      code: 'outside_awma',
+    }, 422);
   }
   // at least one photo is mandatory (FR-011), capped at 5; each must live in the
   // caller's own storage folder

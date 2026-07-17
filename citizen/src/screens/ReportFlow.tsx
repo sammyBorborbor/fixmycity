@@ -9,6 +9,7 @@ import StatusPill from '../components/StatusPill.tsx';
 import CategoryBadge from '../components/CategoryBadge.tsx';
 import ProgressBar from '../components/ProgressBar.tsx';
 import LocationPicker from '../components/LocationPicker.tsx';
+import { pointInAwma } from '../lib/awma-boundary.ts';
 
 const MAX_PHOTOS = 5;
 
@@ -28,6 +29,11 @@ export default function ReportFlow() {
   const [newId, setNewId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // AWMA jurisdiction gate: the pilot only serves Ayawaso West. The server is the
+  // source of truth (submit-report rejects out-of-bounds points), but we warn and
+  // block here so the citizen finds out immediately rather than after submitting.
+  const inAwma = pointInAwma(position.lat, position.lng);
 
   // keep object-URL previews in sync with the selected files; revoke on change/unmount
   useEffect(() => {
@@ -49,7 +55,7 @@ export default function ReportFlow() {
   }
 
   async function submit() {
-    if (!category || photos.length === 0 || busy) return;
+    if (!category || photos.length === 0 || busy || !inAwma) return;
     setBusy(true);
     setError(null);
     const { report, error: submitError } = await submitReport({
@@ -173,7 +179,14 @@ export default function ReportFlow() {
                 {Object.keys(GEO).map(l => <option key={l}>{l}</option>)}
               </select>
             </div>
-            <p className="text-[11px] text-muted mt-1">Drag the pin or tap the map to set a precise spot — we'll match the nearest area automatically.</p>
+            {inAwma ? (
+              <p className="text-[11px] text-muted mt-1">Drag the pin or tap the map to set a precise spot — we'll match the nearest area automatically.</p>
+            ) : (
+              <div className="mt-1.5 flex items-start gap-2 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2">
+                <Icon name="TriangleAlert" size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-800">This spot is outside Ayawaso West — reports must be inside the municipality. Drag the pin back inside to continue.</p>
+              </div>
+            )}
           </div>
 
           {/* description */}
@@ -185,10 +198,12 @@ export default function ReportFlow() {
           </div>
 
           {error && <p className="text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2">{error}</p>}
-          <Btn size="lg" onClick={submit} icon="Send" className="w-full" disabled={photos.length === 0 || busy}>
+          <Btn size="lg" onClick={submit} icon="Send" className="w-full" disabled={photos.length === 0 || !inAwma || busy}>
             {busy ? 'Submitting…' : 'Submit report'}
           </Btn>
-          {photos.length === 0 && <p className="text-center text-[11px] text-muted -mt-2">Add a photo to submit</p>}
+          {photos.length === 0
+            ? <p className="text-center text-[11px] text-muted -mt-2">Add a photo to submit</p>
+            : !inAwma && <p className="text-center text-[11px] text-muted -mt-2">Move the pin inside Ayawaso West to submit</p>}
         </div>
       )}
 
