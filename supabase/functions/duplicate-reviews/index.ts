@@ -36,6 +36,7 @@ interface ReviewSide {
   category: string | null;    // DB enum value
   status: string | null;      // DB enum value
   locationName: string | null;
+  photoPath: string | null;   // first stored photo (signed client-side); null for external-only
   label: string;              // display fallback (reference, or "External #<id>")
 }
 
@@ -81,11 +82,11 @@ Deno.serve(async (req) => {
 
     // Reverse-map every CV integer id in the queue back to our rows.
     const ids = [...new Set(reviews.flatMap((r) => [r.reportId, r.candidateReportId]))];
-    const byExternalId = new Map<number, { id: string; reference: string; category: string; status: string; location_name: string }>();
+    const byExternalId = new Map<number, { id: string; reference: string; category: string; status: string; location_name: string; photo_urls: string[] | null }>();
     if (ids.length) {
       const { data: rows } = await admin
         .from('reports')
-        .select('id, reference, category, status, location_name, external_report_id')
+        .select('id, reference, category, status, location_name, photo_urls, external_report_id')
         .in('external_report_id', ids);
       for (const r of rows ?? []) byExternalId.set(r.external_report_id as number, r as never);
     }
@@ -98,6 +99,7 @@ Deno.serve(async (req) => {
         category: r?.category ?? null,
         status: r?.status ?? null,
         locationName: r?.location_name ?? null,
+        photoPath: r?.photo_urls?.[0] ?? null,
         label: r?.reference ?? `External #${externalId}`,
       };
     };

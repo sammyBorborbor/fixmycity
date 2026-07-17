@@ -83,6 +83,7 @@ export interface DuplicateReviewSide {
   category: CategoryName | null;
   status: StatusName | null;
   locationName: LocationName | null;
+  photoPath: string | null;
   label: string;
 }
 
@@ -606,7 +607,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     type SideRow = {
       externalId: number; ourId: string | null; reference: string | null;
       category: ReportRow['category'] | null; status: ReportRow['status'] | null;
-      locationName: string | null; label: string;
+      locationName: string | null; photoPath: string | null; label: string;
     };
     type ReviewRow = {
       id: number; confidence: number; status: string; resolution: string | null;
@@ -620,6 +621,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       category: s.category ? DB_TO_CATEGORY[s.category] : null,
       status: s.status ? DB_TO_STATUS[s.status] : null,
       locationName: (s.locationName as LocationName) ?? null,
+      photoPath: s.photoPath,
       label: s.label,
     });
     const reviews: DuplicateReview[] = ((data?.reviews ?? []) as ReviewRow[]).map(r => ({

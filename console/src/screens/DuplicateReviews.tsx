@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, relTime } from '../lib/store.tsx';
 import type { DuplicateReview, DuplicateReviewSide } from '../lib/store.tsx';
+import { signedPhotoUrl } from '../lib/supabase.ts';
 import FilterChips from '../components/FilterChips.tsx';
 import StatusPill from '../components/StatusPill.tsx';
-import CategoryBadge from '../components/CategoryBadge.tsx';
 import Btn from '../components/Btn.tsx';
 import Icon from '../components/Icon.tsx';
 
@@ -93,18 +93,42 @@ export default function DuplicateReviews() {
   );
 }
 
+/* The report's first stored photo, signed on demand. External-only sides (not
+   in our DB) have no path — their image lives on the CV service, not our storage. */
+function Thumb({ path }: { path: string | null }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (path) signedPhotoUrl(path).then(u => { if (alive) setUrl(u); }).catch(() => { /* leave placeholder */ });
+    return () => { alive = false; };
+  }, [path]);
+
+  if (!path) {
+    return <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 shrink-0"><Icon name="ImageOff" size={16} /></div>;
+  }
+  if (!url) return <div className="w-12 h-12 rounded-lg bg-gray-100 animate-pulse shrink-0" />;
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="shrink-0" title="Open full image">
+      <img src={url} alt="report photo" className="w-12 h-12 rounded-lg object-cover ring-1 ring-black/5 hover:ring-2 hover:ring-ocean/60 transition" />
+    </a>
+  );
+}
+
 /* One side of a review — resolved to our report when it exists in our DB. */
 function Side({ side }: { side: DuplicateReviewSide }) {
   return (
     <div className="flex items-center gap-2.5 min-w-0">
-      {side.category
-        ? <CategoryBadge category={side.category} size={36} />
-        : <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gray-100 text-gray-400 shrink-0"><Icon name="ImageOff" size={18} /></span>}
+      <Thumb path={side.photoPath} />
       <div className="min-w-0">
         <p className="font-mono text-sm font-semibold text-navy truncate">{side.label}</p>
-        {side.reportId
-          ? side.status && <div className="mt-0.5"><StatusPill status={side.status} /></div>
-          : <p className="text-[11px] text-muted mt-0.5">not in our records</p>}
+        {side.reportId ? (
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {side.status && <StatusPill status={side.status} />}
+            {side.category && <span className="text-[11px] text-muted">{side.category}</span>}
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted mt-0.5">not in our records</p>
+        )}
         {side.locationName && <p className="text-[11px] text-muted truncate mt-0.5">{side.locationName}</p>}
       </div>
     </div>
