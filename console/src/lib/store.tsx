@@ -74,6 +74,32 @@ export interface DuplicateCandidate {
   distanceM: number;
 }
 
+// One side of a CV duplicate-review, resolved to our report when it exists in
+// our DB (otherwise `reportId` is null and `label` is "External #<id>").
+export interface DuplicateReviewSide {
+  externalId: number;
+  reportId: string | null;
+  reference: string | null;
+  category: CategoryName | null;
+  status: StatusName | null;
+  locationName: LocationName | null;
+  label: string;
+}
+
+// A review from the CV service's own duplicate-review queue (see the
+// duplicate-reviews edge function). Advisory only — never touches our statuses.
+export interface DuplicateReview {
+  id: number;
+  confidence: number;           // 0..1
+  status: string;               // 'open' | 'resolved'
+  resolution: string | null;    // a DuplicateStatus value once resolved
+  notes: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  report: DuplicateReviewSide;
+  candidate: DuplicateReviewSide;
+}
+
 export interface CrewMember { id: string; name: string; email: string }
 
 export interface Crew {
@@ -136,7 +162,7 @@ export interface Perms {
 
 const ALL_ACTIONS: TransitionAction[] = ['acknowledge', 'assign', 'reject', 'in_progress', 'resolve'];
 // personal pages every office role can reach
-const BASE_PAGES = ['/', '/map', '/assignments', '/profile', '/settings'];
+const BASE_PAGES = ['/', '/map', '/assignments', '/duplicates', '/profile', '/settings'];
 
 const ROLE_PERMS: Record<RoleName, Perms> = {
   Administrator: { pages: [...BASE_PAGES, '/crews', '/analytics', '/users', '/audit'], actions: new Set(ALL_ACTIONS), canManageUsers: true,  canManageCrews: true,  isCrew: false },
@@ -168,6 +194,9 @@ export interface StoreValue {
   saveSettings: (partial: Partial<ConsoleSettings>) => Promise<{ error?: string }>;
   transitionReport: (reportId: string, action: TransitionAction, opts?: TransitionOpts) => Promise<{ error?: string }>;
   checkDuplicates: (reportId: string) => Promise<{ candidates?: DuplicateCandidate[]; error?: string }>;
+  listDuplicateReviews: () => Promise<{ reviews?: DuplicateReview[]; error?: string }>;
+  resolveDuplicateReview: (reviewId: number, opts: { resolution: string; duplicateOfReportId?: number | null; notes?: string }) => Promise<{ error?: string }>;
+  mergeDuplicateReview: (reviewId: number, targetReportId: number, notes?: string) => Promise<{ error?: string }>;
   createCrew: (c: { name: string; dept: string; lead?: string }) => Promise<{ error?: string }>;
   setCrewAvailability: (crewId: string, available: boolean) => Promise<{ error?: string }>;
   assignCrewMember: (userId: string, crewId: string) => Promise<{ error?: string }>;
@@ -561,6 +590,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return { candidates };
   }, [reports]);
 
+  /* ---- CV duplicate-review queue (staff-gated duplicate-reviews function) ---- */
+  // Pure proxy over the CV service's own review queue. `list` is read-only;
+  // `resolve`/`merge` drive the CV service only and never touch our reports, so
+  // the page re-fetches itself rather than reloading the global report list.
+  const listDuplicateReviews = useCallback(async (): Promise<{ reviews?: DuplicateReview[]; error?: string }> => {
+    const { data, error } = await supabase.functions.invoke('duplicate-reviews', { body: { action: 'list' } });
+    if (error) {
+      let msg = 'Could not load duplicate reviews.';
+      if (error instanceof FunctionsHttpError) {
+        try { const b = await error.context.json(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+      } else if (error instanceof Error) { msg = error.message; }
+      return { error: msg };
+    }
+    type SideRow = {
+      externalId: number; ourId: string | null; reference: string | null;
+      category: ReportRow['category'] | null; status: ReportRow['status'] | null;
+      locationName: string | null; label: string;
+    };
+    type ReviewRow = {
+      id: number; confidence: number; status: string; resolution: string | null;
+      notes: string | null; createdAt: string; resolvedAt: string | null;
+      report: SideRow; candidate: SideRow;
+    };
+    const mapSide = (s: SideRow): DuplicateReviewSide => ({
+      externalId: s.externalId,
+      reportId: s.ourId,
+      reference: s.reference,
+      category: s.category ? DB_TO_CATEGORY[s.category] : null,
+      status: s.status ? DB_TO_STATUS[s.status] : null,
+      locationName: (s.locationName as LocationName) ?? null,
+      label: s.label,
+    });
+    const reviews: DuplicateReview[] = ((data?.reviews ?? []) as ReviewRow[]).map(r => ({
+      id: r.id,
+      confidence: r.confidence,
+      status: r.status,
+      resolution: r.resolution,
+      notes: r.notes,
+      createdAt: r.createdAt,
+      resolvedAt: r.resolvedAt,
+      report: mapSide(r.report),
+      candidate: mapSide(r.candidate),
+    }));
+    return { reviews };
+  }, []);
+
+  const runDuplicateReview = useCallback(async (body: Record<string, unknown>, fallback: string) => {
+    const { error } = await supabase.functions.invoke('duplicate-reviews', { body });
+    if (error) {
+      let msg = fallback;
+      if (error instanceof FunctionsHttpError) {
+        try { const b = await error.context.json(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+      } else if (error instanceof Error) { msg = error.message; }
+      return { error: msg };
+    }
+    return {};
+  }, []);
+
+  const resolveDuplicateReview = useCallback((reviewId: number, opts: { resolution: string; duplicateOfReportId?: number | null; notes?: string }) =>
+    runDuplicateReview({
+      action: 'resolve', review_id: reviewId, resolution: opts.resolution,
+      duplicate_of_report_id: opts.duplicateOfReportId ?? undefined, notes: opts.notes,
+    }, 'Could not resolve the review.'), [runDuplicateReview]);
+  const mergeDuplicateReview = useCallback((reviewId: number, targetReportId: number, notes?: string) =>
+    runDuplicateReview({ action: 'merge', review_id: reviewId, target_report_id: targetReportId, notes },
+      'Could not merge the review.'), [runDuplicateReview]);
+
   /* ---- Crew CRUD + membership (server-side; staff-gated manage-crews function) ---- */
   // Members are real users (profiles.role='crew'/crew_id). Assigning or moving
   // one fires a branded email; every action refetches so rosters stay in sync.
@@ -658,11 +754,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(() => ({
     authReady, user, perms, settings, reports, crews, staff,
     signIn, signOut, updatePassword, updateProfile, saveSettings,
-    transitionReport, checkDuplicates,
+    transitionReport, checkDuplicates, listDuplicateReviews, resolveDuplicateReview, mergeDuplicateReview,
     createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
     inviteUser, setUserRole, setUserStatus,
   }), [authReady, user, perms, settings, reports, crews, staff, signIn, signOut, updatePassword, updateProfile, saveSettings,
-       transitionReport, checkDuplicates,
+       transitionReport, checkDuplicates, listDuplicateReviews, resolveDuplicateReview, mergeDuplicateReview,
        createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
        inviteUser, setUserRole, setUserStatus]);
 

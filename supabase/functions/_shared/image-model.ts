@@ -230,3 +230,99 @@ export async function fetchCvDuplicates(externalId: number): Promise<CvDuplicate
     category: theirCategoryToOurs(r.cv_inferred_category),
   }));
 }
+
+// ---- Duplicate reviews (the CV service's own auto-created review queue) -----
+// The CV service opens a review whenever it detects a possible duplicate at
+// submission. report_id / candidate_report_id / duplicate_of_report_id /
+// target_report_id are all the CV service's OWN integer report ids — the
+// duplicate-reviews edge function maps them back to our rows via external_report_id.
+
+// Raw shape returned by the CV API (envelope.data).
+interface CvDuplicateReviewRaw {
+  id: number;
+  report_id: number;
+  candidate_report_id: number;
+  confidence_score: number;
+  status: string;              // 'open' | 'resolved'
+  resolution: string | null;   // a DuplicateStatus value once resolved
+  notes: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface CvDuplicateReview {
+  id: number;
+  reportId: number;
+  candidateReportId: number;
+  confidence: number;
+  status: string;
+  resolution: string | null;
+  notes: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+function mapReview(r: CvDuplicateReviewRaw): CvDuplicateReview {
+  return {
+    id: r.id,
+    reportId: r.report_id,
+    candidateReportId: r.candidate_report_id,
+    confidence: Number.isFinite(r.confidence_score) ? r.confidence_score : 0,
+    status: r.status,
+    resolution: r.resolution ?? null,
+    notes: r.notes ?? null,
+    createdAt: r.created_at,
+    resolvedAt: r.resolved_at ?? null,
+  };
+}
+
+// The four DuplicateStatus values the CV service accepts as a resolution.
+export const CV_RESOLUTIONS = ['new', 'duplicate', 'possible_duplicate', 'supporting_evidence'];
+
+export async function listDuplicateReviews(): Promise<CvDuplicateReview[]> {
+  const res = await cvFetch(`${cvBaseUrl()}/api/v1/duplicate-reviews`, {
+    method: 'GET',
+    headers: { ...authHeader() },
+  });
+  if (!res.ok) throw new Error(`CV API GET /duplicate-reviews returned ${res.status}`);
+  const parsed = await res.json().catch(() => null) as CvEnvelope<CvDuplicateReviewRaw[]> | CvDuplicateReviewRaw[] | null;
+  const rows = Array.isArray(parsed) ? parsed : (parsed?.data ?? []);
+  return rows.map(mapReview);
+}
+
+export interface ResolveInput {
+  resolution: string;                 // one of CV_RESOLUTIONS
+  duplicateOfReportId?: number | null; // CV integer id
+  notes?: string | null;
+}
+
+export async function resolveDuplicateReview(reviewId: number, input: ResolveInput): Promise<CvDuplicateReview> {
+  const body: Record<string, unknown> = { resolution: input.resolution };
+  if (input.duplicateOfReportId != null) body.duplicate_of_report_id = input.duplicateOfReportId;
+  if (input.notes) body.notes = input.notes;
+  const res = await cvFetch(`${cvBaseUrl()}/api/v1/duplicate-reviews/${reviewId}/resolve`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...authHeader() },
+    body: JSON.stringify(body),
+  });
+  const parsed = await res.json().catch(() => null) as CvEnvelope<CvDuplicateReviewRaw> | null;
+  if (!res.ok || !parsed || parsed.success === false) {
+    throw new Error(`CV API resolve failed: ${parsed?.message ?? res.status}`);
+  }
+  return mapReview((parsed.data ?? {}) as CvDuplicateReviewRaw);
+}
+
+export async function mergeDuplicateReview(reviewId: number, targetReportId: number, notes?: string | null): Promise<CvDuplicateReview> {
+  const body: Record<string, unknown> = { target_report_id: targetReportId };
+  if (notes) body.notes = notes;
+  const res = await cvFetch(`${cvBaseUrl()}/api/v1/duplicate-reviews/${reviewId}/merge`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...authHeader() },
+    body: JSON.stringify(body),
+  });
+  const parsed = await res.json().catch(() => null) as CvEnvelope<CvDuplicateReviewRaw> | null;
+  if (!res.ok || !parsed || parsed.success === false) {
+    throw new Error(`CV API merge failed: ${parsed?.message ?? res.status}`);
+  }
+  return mapReview((parsed.data ?? {}) as CvDuplicateReviewRaw);
+}

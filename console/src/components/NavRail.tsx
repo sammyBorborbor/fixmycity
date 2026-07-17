@@ -8,6 +8,7 @@ const NAV: NavItem[] = [
   { to: '/',            label: 'Inbox',       icon: 'Inbox',      end: true },
   { to: '/map',         label: 'Map',         icon: 'Map' },
   { to: '/assignments', label: 'Assignments', icon: 'ListChecks' },
+  { to: '/duplicates',  label: 'Duplicate Reviews', icon: 'Copy' },
   { to: '/crews',       label: 'Crews',       icon: 'Users' },
   { to: '/analytics',   label: 'Analytics',   icon: 'BarChart3' },
   { to: '/users',       label: 'Users',       icon: 'UserCog' },

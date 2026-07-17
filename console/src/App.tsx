@@ -12,6 +12,7 @@ import CrewReports from './screens/CrewReports.tsx';
 import Inbox from './screens/Inbox.tsx';
 import MapView from './screens/MapView.tsx';
 import Assignments from './screens/Assignments.tsx';
+import DuplicateReviews from './screens/DuplicateReviews.tsx';
 import Crews from './screens/Crews.tsx';
 import Analytics from './screens/Analytics.tsx';
 import Users from './screens/Users.tsx';
@@ -96,6 +97,7 @@ function OfficeApp() {
         <Route path="/" element={<Inbox />} />
         <Route path="/map" element={<RequireRole path="/map"><MapView /></RequireRole>} />
         <Route path="/assignments" element={<RequireRole path="/assignments"><Assignments /></RequireRole>} />
+        <Route path="/duplicates" element={<RequireRole path="/duplicates"><DuplicateReviews /></RequireRole>} />
         <Route path="/crews" element={<RequireRole path="/crews"><Crews /></RequireRole>} />
         <Route path="/analytics" element={<RequireRole path="/analytics"><Analytics /></RequireRole>} />
         <Route path="/users" element={<RequireRole path="/users"><Users /></RequireRole>} />
