@@ -234,8 +234,11 @@ event stashed at startup in `lib/installPrompt.ts`), Add-to-Home-Screen hint on 
 Mobile-only, hidden once installed, dismissible for the session (`sessionStorage`).
 
 ✅ **Leaflet / OpenStreetMap maps, both apps:** shared `LeafletMap` (status-coloured pins),
-citizen `LocationPicker` (geolocate-on-mount, draggable pin, nearest-neighbourhood
-auto-select, debounced Nominatim reverse-geocode as a display hint).
+citizen `LocationPicker` (geolocate-on-mount, nearest-neighbourhood auto-select, debounced
+Nominatim reverse-geocode as a display hint). The picker is now a compact **non-interactive
+preview** that opens a **full-screen `MapLocationModal`** on tap — a fixed centre pin the
+citizen moves the map under (Uber-style), with a draft-then-Confirm commit and the AWMA
+jurisdiction gate. Removes the old inline-map scroll-vs-pan conflict.
 
 🟡 **Offline is shell-only** — no `runtimeCaching` for the Supabase host, so no offline data
 or report queueing (network required for all API/storage calls).
@@ -304,7 +307,16 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Follow-a-duplicate (multi-follower notifications). When the CV service flags a submission as
+1. Full-screen location picker for the citizen report flow. The step-2 map is now a compact,
+   locked preview (fixed centre pin + "Tap to adjust on map" chip); tapping it opens a new
+   full-screen `MapLocationModal` where the citizen moves the map under a stationary pin,
+   sees a live "Near: ..." address, and taps "Confirm location". New `CenterPin` overlay
+   shared by preview + modal. The modal renders through a `createPortal` to `document.body`
+   to escape the form's `fade-up` transform (which would otherwise trap the `fixed` overlay).
+   Reuses the existing nearest-neighbourhood, reverse-geocode, and `pointInAwma` gate logic;
+   no state-machine or submit-payload change.
+
+2. Follow-a-duplicate (multi-follower notifications). When the CV service flags a submission as
    a strong duplicate, `submit-report` returns the existing report as a candidate instead of
    filing a new one, and the citizen chooses to follow it or submit anyway (`force_create`).
    New `report_followers` join table + `reports.follower_count` counter (migration

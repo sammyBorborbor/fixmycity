@@ -220,7 +220,7 @@ export default function ReportFlow() {
               </select>
             </div>
             {inAwma ? (
-              <p className="text-[11px] text-muted mt-1">Drag the pin or tap the map to set a precise spot — we'll match the nearest area automatically.</p>
+              <p className="text-[11px] text-muted mt-1">Tap the map to set a precise spot — we'll match the nearest area automatically.</p>
             ) : (
               <div className="mt-1.5 flex items-start gap-2 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2">
                 <Icon name="TriangleAlert" size={15} className="text-amber-600 shrink-0 mt-0.5" />

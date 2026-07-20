@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
-import type { LeafletEvent } from 'leaflet';
-import L from 'leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import Icon from './Icon.tsx';
+import CenterPin from './CenterPin.tsx';
+import MapLocationModal from './MapLocationModal.tsx';
 import { GEO } from '../lib/store.tsx';
 import type { LocationName } from '../lib/store.tsx';
 import { nearestLocation, reverseGeocode } from '../lib/geo.ts';
@@ -15,15 +14,6 @@ interface LocationPickerProps {
   height?: number;
 }
 
-const PIN_ICON = L.divIcon({
-  html: renderToStaticMarkup(
-    <Icon name="MapPin" size={32} strokeWidth={2.5} style={{ color: '#1E5F8E', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.3))' }} />,
-  ),
-  className: '',
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-});
-
 /* Invisible helper: re-centers the map whenever `position` changes (react-leaflet
    does not do this automatically from the MapContainer `center` prop after mount). */
 function RecenterOnChange({ position }: { position: [number, number] }) {
@@ -32,36 +22,37 @@ function RecenterOnChange({ position }: { position: [number, number] }) {
   return null;
 }
 
-/* Invisible helper: tapping anywhere on the map moves the pin there. */
-function ClickHandler({ onMove }: { onMove: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) { onMove(e.latlng.lat, e.latlng.lng); },
-  });
-  return null;
-}
+/* Compact, non-interactive map PREVIEW of the report's location. The map itself
+   is locked (no drag/zoom) and shows a fixed centre pin; tapping it opens the
+   full-screen MapLocationModal where the citizen actually moves the map to place
+   the pin. This split keeps the tidy form free of a map that would otherwise
+   fight page-scroll, while giving a full screen for precise pinning on demand.
 
-/* Geolocate-on-mount + draggable/clickable pin for precise report-submission
-   location. Fails soft throughout: a denied/unavailable/timed-out geolocation
-   falls back silently to the given area's centroid; a failed reverse-geocode
-   just leaves the address hint blank. Neither ever blocks interaction. */
+   Fails soft throughout: a denied/unavailable/timed-out geolocation falls back
+   silently to the given area's centroid; a failed reverse-geocode just leaves
+   the address hint blank. Neither ever blocks interaction. */
 export default function LocationPicker({ location, onLocationChange, onPositionChange, height = 160 }: LocationPickerProps) {
   const [position, setPosition] = useState<[number, number]>(() => {
     const g = GEO[location];
     return [g.lat, g.lng];
   });
   const [hint, setHint] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeq = useRef(0);
   // guards against LocationPicker's own nearest-neighbourhood update to
   // `location` re-triggering the "dropdown changed externally" recenter effect
-  // below, which would otherwise snap a precisely-dragged pin back to a
+  // below, which would otherwise snap a precisely-placed pin back to a
   // neighbourhood's centroid.
   const skipNextRecenter = useRef(false);
 
-  function movePin(lat: number, lng: number) {
+  // Applies a new pin position: syncs it up to the parent, auto-selects the
+  // nearest neighbourhood, and refreshes the address hint. When the caller
+  // already knows the address (e.g. the modal geocoded it live), pass it as
+  // `knownHint` to skip a redundant network round-trip.
+  function movePin(lat: number, lng: number, knownHint?: string | null) {
     setPosition([lat, lng]);
     onPositionChange(lat, lng);
-    setHint(null);
 
     const nearest = nearestLocation(lat, lng);
     if (nearest !== location) {
@@ -69,6 +60,12 @@ export default function LocationPicker({ location, onLocationChange, onPositionC
       onLocationChange(nearest);
     }
 
+    if (knownHint !== undefined) {
+      setHint(knownHint);
+      return;
+    }
+
+    setHint(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const seq = ++requestSeq.current;
     debounceRef.current = setTimeout(() => {
@@ -108,28 +105,49 @@ export default function LocationPicker({ location, onLocationChange, onPositionC
 
   return (
     <div>
-      <div className="rounded-xl overflow-hidden ring-1 ring-black/5" style={{ height }}>
-        <MapContainer center={position} zoom={15} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+      <div className="relative rounded-xl overflow-hidden ring-1 ring-black/5" style={{ height }}>
+        <MapContainer
+          center={position}
+          zoom={15}
+          zoomControl={false}
+          dragging={false}
+          touchZoom={false}
+          doubleClickZoom={false}
+          scrollWheelZoom={false}
+          keyboard={false}
+          boxZoom={false}
+          attributionControl={false}
+          style={{ height: '100%', width: '100%' }}
+        >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <Marker
-            position={position}
-            icon={PIN_ICON}
-            draggable
-            eventHandlers={{
-              dragend: (e: LeafletEvent) => {
-                const p = (e.target as L.Marker).getLatLng();
-                movePin(p.lat, p.lng);
-              },
-            }}
-          />
           <RecenterOnChange position={position} />
-          <ClickHandler onMove={movePin} />
         </MapContainer>
+        <CenterPin />
+        {/* full-cover tap target that opens the precise picker */}
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          aria-label="Adjust location on map"
+          className="absolute inset-0 z-600 flex items-end justify-center pb-3"
+        >
+          <span className="inline-flex items-center gap-1.5 bg-navy text-white text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-md">
+            <Icon name="Maximize2" size={13} /> Tap to adjust on map
+          </span>
+        </button>
       </div>
       {hint && <p className="text-[11px] text-muted mt-1.5 px-1">Near: {hint}</p>}
+
+      {modalOpen && (
+        <MapLocationModal
+          initialPosition={position}
+          initialHint={hint}
+          onClose={() => setModalOpen(false)}
+          onConfirm={(lat, lng, h) => { movePin(lat, lng, h); setModalOpen(false); }}
+        />
+      )}
     </div>
   );
 }
