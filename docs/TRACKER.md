@@ -32,7 +32,7 @@ Administrator) · Progressive Web App.
 
 ## M1 — Database schema, RLS & seed
 
-✅ **15 migrations applied** (`supabase/migrations/`):
+✅ **16 migrations applied** (`supabase/migrations/`):
 
 - Full schema: `crews`, `profiles`, `reports`, `status_transitions`, `notifications`.
 - Enums: `user_role`, `profile_status`, `report_category`, `report_status` (7 states),
@@ -202,7 +202,10 @@ citizens via the new `report_followers` join table (migration
 `20260720120000_report_followers.sql`), and `transition-report` fans out every status
 notification + email to the reporter **plus all followers**. New `follow-report` /
 `unfollow-report` edge functions (service-role; `follow-report` also cleans up the orphaned
-uploaded photos, since the browser has no storage-DELETE policy). Privacy (Act 843): a
+uploaded photos, since the browser has no storage-DELETE policy). **Follow is offer-gated**
+(migration `20260720123000_duplicate_offers.sql`): `submit-report` records that it offered a
+candidate to a user, and `follow-report` rejects any `report_id` that wasn't offered — so a
+citizen can't follow an arbitrary report to read its contents (IDOR guard). Privacy (Act 843): a
 follower reads the full followed report but never the owner's identity (profiles are
 read-own/staff-only under RLS); a denormalised `reports.follower_count` shows "N following"
 without exposing who. Citizen UI: duplicate-choice view in `ReportFlow`, "Following" pill in

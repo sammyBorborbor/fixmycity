@@ -158,6 +158,12 @@ Deno.serve(async (req) => {
             .eq('external_report_id', cv.duplicateOfExternalId)
             .maybeSingle();
           if (candidate && candidate.reporter_id !== user.id) {
+            // record that we offered this candidate to this user, so follow-report
+            // can verify the follow is legitimate (guards against following an
+            // arbitrary report_id — see 20260720123000_duplicate_offers.sql).
+            await admin
+              .from('duplicate_offers')
+              .upsert({ user_id: user.id, report_id: candidate.id }, { onConflict: 'user_id,report_id', ignoreDuplicates: true });
             return json({
               status: 'duplicate_detected',
               candidate: {

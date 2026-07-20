@@ -64,6 +64,18 @@ Deno.serve(async (req) => {
   // you can't follow your own report (you already get its notifications)
   if (report.reporter_id === user.id) return json({ error: "you can't follow your own report" }, 403);
 
+  // a citizen may only follow a report that submit-report OFFERED them as a
+  // duplicate candidate. Without this check, any authenticated user could follow
+  // an arbitrary report_id and read its full contents via the follower RLS policy
+  // (see 20260720123000_duplicate_offers.sql).
+  const { data: offer } = await admin
+    .from('duplicate_offers')
+    .select('report_id')
+    .eq('user_id', user.id)
+    .eq('report_id', reportId)
+    .maybeSingle();
+  if (!offer) return json({ error: 'this report was not offered to you as a duplicate' }, 403);
+
   // insert the follow row (idempotent: a repeat follow is a no-op success). The
   // report_followers_count trigger bumps reports.follower_count.
   const { error: insertErr } = await admin
