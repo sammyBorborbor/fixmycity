@@ -260,6 +260,13 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
   metrics, and store helpers. Still missing: edge-function (Deno) tests for the state machine and
   Playwright E2E.
 - Citizen `Profile` notification/push toggles are local-only (not persisted).
+- **CORS hardening across edge functions.** Every edge function sends
+  `Access-Control-Allow-Origin: *`. Not independently exploitable today (auth is a bearer JWT in
+  the `Authorization` header, which browsers never auto-attach cross-origin — so a malicious site
+  can't forge an authenticated request for a victim), but a team-wide pass should restrict the
+  allowed origin to the citizen/console app origins (e.g. `https://fixmycity-citizen.vercel.app`)
+  as defense-in-depth. Do it consistently across ALL functions, not one-off. Flagged by the
+  automated security review of the follow-a-duplicate work.
 - **Manual hosted-project config (staff invite).** `supabase/config.toml` + `supabase/templates/`
   are the source of truth, but the hosted project applies auth email templates and the redirect
   allow-list via the dashboard. For the invite click-through to work end-to-end, add on the hosted
@@ -288,6 +295,8 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [~] Test suite: Vitest unit tests done (console pure logic); edge-function (Deno) + Playwright E2E left.
 - [ ] Deploy the console to Vercel (citizen is live); set up GitHub Actions CI.
 - [ ] Refresh the stale top-level README.
+- [ ] Restrict `Access-Control-Allow-Origin` on all edge functions to the app origins
+  (defense-in-depth; see Cross-cutting / tech debt).
 
 ---
 
