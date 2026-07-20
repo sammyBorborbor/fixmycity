@@ -142,6 +142,39 @@ export type Database = {
           },
         ]
       }
+      report_followers: {
+        Row: {
+          created_at: string
+          report_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          report_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          report_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_followers_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "report_followers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reports: {
         Row: {
           ai_confidence: number | null
@@ -156,6 +189,7 @@ export type Database = {
           duplicate_status: string | null
           embedding: string | null
           external_report_id: number | null
+          follower_count: number
           id: string
           lat: number
           lng: number
@@ -180,6 +214,7 @@ export type Database = {
           duplicate_status?: string | null
           embedding?: string | null
           external_report_id?: number | null
+          follower_count?: number
           id?: string
           lat?: number
           lng?: number
@@ -204,6 +239,7 @@ export type Database = {
           duplicate_status?: string | null
           embedding?: string | null
           external_report_id?: number | null
+          follower_count?: number
           id?: string
           lat?: number
           lng?: number

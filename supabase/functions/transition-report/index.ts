@@ -188,42 +188,60 @@ Deno.serve(async (req) => {
       return json({ error: auditErr.message }, 500);
     }
 
-    // notify the reporter (non-fatal — the transition already stands)
+    // notify every interested citizen (non-fatal — the transition already stands):
+    // the reporter PLUS anyone who followed this report as a duplicate. Deduped so
+    // a follower who is somehow also the reporter is notified once.
     const assignedCrewId = (extra.assigned_crew_id as string) ?? report!.assigned_crew_id;
     let crewName: string | null = null;
     if (assignedCrewId) {
       const { data: crew } = await admin.from('crews').select('name').eq('id', assignedCrewId).single();
       crewName = crew?.name ?? null;
     }
-    const { error: notifyErr } = await admin.from('notifications').insert({
-      user_id: report!.reporter_id,
-      report_id: reportId,
-      type: to,
-      body: notifyBody(to, crewName, noteText),
-    });
+
+    const recipientIds = new Set<string>([report!.reporter_id]);
+    const { data: followerRows } = await admin
+      .from('report_followers').select('user_id').eq('report_id', reportId);
+    for (const f of followerRows ?? []) recipientIds.add(f.user_id as string);
+
+    const bodyText = notifyBody(to, crewName, noteText);
+    const { error: notifyErr } = await admin.from('notifications').insert(
+      [...recipientIds].map((rid) => ({
+        user_id: rid,
+        report_id: reportId,
+        type: to,
+        body: bodyText,
+      })),
+    );
     if (notifyErr) console.error('notification insert failed:', notifyErr.message);
 
-    // email the reporter too (FR-070/071) — non-fatal, mirrors the notifyErr handling above
+    // email each recipient too (FR-070/071) — non-fatal. The email is identical
+    // for everyone and carries no reporter identity, so build it once and loop the
+    // send (each address looked up individually; one failure never blocks the rest).
     try {
-      const { data: authUser } = await admin.auth.admin.getUserById(report!.reporter_id);
-      const toEmail = authUser?.user?.email;
-      if (toEmail) {
-        const label = STATUS_LABEL[to];
-        const subject = `FixMyCity — ${label} · ${report!.reference}`;
-        const bodyText = notifyBody(to, crewName, noteText);
-        const params: TransitionEmailParams = {
-          statusLabel: label,
-          badge: STATUS_BADGE[to],
-          bodyText,
-          reference: report!.reference,
-          category: CATEGORY_LABEL[report!.category] ?? report!.category,
-          locationName: report!.location_name,
-          reportUrl: `https://fixmycity-citizen.vercel.app/reports/${reportId}`,
-        };
-        await sendTransitionEmail(toEmail, subject, renderTransitionEmail(params), renderTransitionEmailText(params));
+      const label = STATUS_LABEL[to];
+      const subject = `FixMyCity — ${label} · ${report!.reference}`;
+      const params: TransitionEmailParams = {
+        statusLabel: label,
+        badge: STATUS_BADGE[to],
+        bodyText,
+        reference: report!.reference,
+        category: CATEGORY_LABEL[report!.category] ?? report!.category,
+        locationName: report!.location_name,
+        reportUrl: `https://fixmycity-citizen.vercel.app/reports/${reportId}`,
+      };
+      const html = renderTransitionEmail(params);
+      const text = renderTransitionEmailText(params);
+      for (const rid of recipientIds) {
+        try {
+          const { data: authUser } = await admin.auth.admin.getUserById(rid);
+          const toEmail = authUser?.user?.email;
+          if (toEmail) await sendTransitionEmail(toEmail, subject, html, text);
+        } catch (e) {
+          console.error('transition email failed for', rid, e);
+        }
       }
     } catch (e) {
-      console.error('transition email failed:', e);
+      console.error('transition email block failed:', e);
     }
 
     const { data: updated } = await admin.from('reports').select('*').eq('id', reportId).single();

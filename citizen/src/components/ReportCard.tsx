@@ -12,6 +12,11 @@ export default function ReportCard({ r, onClick, unread }: { r: Report; onClick:
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="font-semibold text-ink text-[15px] truncate">{r.category}</p>
+          {r.following && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-ocean bg-ocean/10 rounded-full px-1.5 py-0.5 shrink-0">
+              <Icon name="Bell" size={10} /> Following
+            </span>
+          )}
           {unread && <span className="w-2 h-2 rounded-full bg-gold pop-dot shrink-0" title="New update" />}
         </div>
         <p className="text-xs text-muted flex items-center gap-1 mt-0.5 truncate">

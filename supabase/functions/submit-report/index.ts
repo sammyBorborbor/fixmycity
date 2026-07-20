@@ -104,7 +104,17 @@ Deno.serve(async (req) => {
   let detectedObjects: unknown[] | null = null;
   let perceptualHash: string | null = null;
 
-  if (cvApiConfigured()) {
+  // "mine is different" re-submission after a duplicate was detected: the citizen
+  // overrode the AI suggestion, so skip the CV block entirely (which both detects
+  // AND registers the image — re-running it would double-register). The report is
+  // created with null AI metadata, exactly like the CV-outage fail-soft path.
+  const forceCreate = body.force_create === true;
+
+  // The CV service says a photo is a strong duplicate; only 'duplicate' (not the
+  // looser 'possible_duplicate') triggers the citizen-facing follow offer.
+  const STRONG_DUPLICATE = 'duplicate';
+
+  if (cvApiConfigured() && !forceCreate) {
     try {
       const { data: photoBlob, error: dlErr } = await admin.storage.from('report-photos').download(paths[0]);
       if (!dlErr && photoBlob) {
@@ -133,6 +143,36 @@ Deno.serve(async (req) => {
         duplicateStatus = cv.duplicateStatus;
         detectedObjects = cv.detectedObjects;
         perceptualHash = cv.perceptualHash;
+
+        // Strong-duplicate follow offer: the CV service says this photo duplicates
+        // an existing report. If that report maps to one of OUR rows (via the CV
+        // integer id -> external_report_id reverse map, same as check-duplicates)
+        // and isn't the citizen's own, do NOT create a report — return the
+        // candidate so the client can offer "follow it" vs "submit anyway".
+        // The uploaded photos stay in storage: follow-report cleans them up on the
+        // follow path, or a force_create re-call reuses them on the decline path.
+        if (duplicateStatus === STRONG_DUPLICATE && cv.duplicateOfExternalId != null) {
+          const { data: candidate } = await admin
+            .from('reports')
+            .select('id, reference, category, location_name, status, follower_count, reporter_id')
+            .eq('external_report_id', cv.duplicateOfExternalId)
+            .maybeSingle();
+          if (candidate && candidate.reporter_id !== user.id) {
+            return json({
+              status: 'duplicate_detected',
+              candidate: {
+                id: candidate.id,
+                reference: candidate.reference,
+                category: candidate.category,
+                location_name: candidate.location_name,
+                status: candidate.status,
+                follower_count: candidate.follower_count,
+              },
+            });
+          }
+          // candidate missing (older/CV-only row) or it's the caller's own report:
+          // fall through and create the report normally.
+        }
       }
     } catch (e) {
       console.error('CV API call failed (non-fatal, submission proceeds):', e);

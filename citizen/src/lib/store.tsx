@@ -56,6 +56,20 @@ export interface Report {
   photoPaths: string[];       // storage paths in the report-photos bucket (1-5)
   rejectReason?: string;
   timeline: TimelineEvent[];
+  following?: boolean;        // true if this is someone else's report the user follows
+  followerCount?: number;     // how many citizens follow this report (never who)
+}
+
+/* A candidate the CV service flagged the citizen's submission as a duplicate of.
+   Returned by submitReport instead of creating a report, so the citizen can
+   choose to follow it. Owner identity is never included. */
+export interface DuplicateCandidate {
+  uuid: string;               // report row id (for follow-report)
+  reference: string;          // FMC-YYYY-NNNN
+  category: CategoryName;
+  location: string;
+  status: StatusName;
+  followerCount: number;
 }
 
 export interface Crew {
@@ -100,7 +114,13 @@ export interface StoreValue {
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
-  submitReport: (draft: ReportDraft) => Promise<{ report?: Report; error?: string }>;
+  // submitReport either creates the report, or — when the CV service flags it as a
+  // duplicate — returns a `duplicate` candidate plus the already-uploaded
+  // `photoPaths` (so the caller can follow it, or submitAnyway to override).
+  submitReport: (draft: ReportDraft) => Promise<{ report?: Report; duplicate?: DuplicateCandidate; photoPaths?: string[]; error?: string }>;
+  submitAnyway: (draft: ReportDraft, photoPaths: string[]) => Promise<{ report?: Report; error?: string }>;
+  followReport: (candidate: DuplicateCandidate, photoPaths: string[]) => Promise<{ error?: string }>;
+  unfollowReport: (id: string) => Promise<{ error?: string }>;
   reopenReport: (id: string) => Promise<{ error?: string }>;
   cancelReport: (id: string) => Promise<{ error?: string }>;
   markAllRead: () => Promise<void>;
@@ -214,6 +234,9 @@ function actorLabel(t: TransitionRow, uid: string, userName: string, crewId: str
   if (t.actor_id === uid) return userName;
   if (t.actor_role === 'crew') return crewName(crewId) ?? 'Field crew';
   if (t.actor_role === 'officer' || t.actor_role === 'admin') return 'AWMA';
+  // a citizen actor who isn't the current user = the original reporter of a
+  // report we follow. Stay anonymous (their profile is unreadable under RLS).
+  if (t.actor_role === 'citizen') return 'Reporter';
   return 'AWMA';
 }
 
@@ -235,6 +258,8 @@ function mapReport(row: ReportRow & { status_transitions: TransitionRow[] }, uid
     hasPhoto: row.photo_urls.length > 0,
     photoPaths: row.photo_urls,
     rejectReason: rejected?.note ?? undefined,
+    following: row.reporter_id !== uid,
+    followerCount: row.follower_count,
     timeline: transitions.map(t => ({
       status: DB_TO_STATUS[t.to_status],
       timestamp: t.created_at,
@@ -393,7 +418,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return error ? { error: error.message } : {};
   }, []);
 
-  const submitReport = useCallback(async (draft: ReportDraft): Promise<{ report?: Report; error?: string }> => {
+  /* Map a freshly-created report row from submit-report into local state. */
+  const acceptNewReport = useCallback((row: ReportRow, uidArg: string, userName: string): Report => {
+    const report = mapReport({ ...row, status_transitions: [] }, uidArg, userName);
+    report.timeline = [{ status: 'Submitted', timestamp: row.created_at, actor: userName }];
+    setReports(prev => [report, ...prev]);
+    void refresh();
+    return report;
+  }, [refresh]);
+
+  const submitReport = useCallback(async (draft: ReportDraft): Promise<{ report?: Report; duplicate?: DuplicateCandidate; photoPaths?: string[]; error?: string }> => {
     if (!uid || !user) return { error: 'You are signed out. Please sign in again.' };
     try {
       // compress + upload each photo (1-5); the report row is only created by the
@@ -421,15 +455,74 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
       if (error) return { error: await describeError(error) };
 
-      const report = mapReport({ ...data.report, status_transitions: [] }, uid, user.name);
-      report.timeline = [{ status: 'Submitted', timestamp: data.report.created_at, actor: user.name }];
-      setReports(prev => [report, ...prev]);
-      void refresh();
-      return { report };
+      // the CV service flagged this as a duplicate: no report was created — hand
+      // the candidate + uploaded photos back so the citizen can choose.
+      if (data?.status === 'duplicate_detected' && data.candidate) {
+        const c = data.candidate;
+        return {
+          photoPaths: paths,
+          duplicate: {
+            uuid: c.id,
+            reference: c.reference,
+            category: DB_TO_CATEGORY[c.category as ReportRow['category']],
+            location: c.location_name,
+            status: DB_TO_STATUS[c.status as ReportRow['status']],
+            followerCount: c.follower_count ?? 0,
+          },
+        };
+      }
+
+      return { report: acceptNewReport(data.report, uid, user.name) };
     } catch (e) {
       return { error: await describeError(e) };
     }
-  }, [uid, user, refresh]);
+  }, [uid, user, acceptNewReport]);
+
+  /* "No, mine is different": re-submit after a duplicate was detected, reusing the
+     already-uploaded photos and telling the server to skip the CV check. */
+  const submitAnyway = useCallback(async (draft: ReportDraft, photoPaths: string[]): Promise<{ report?: Report; error?: string }> => {
+    if (!uid || !user) return { error: 'You are signed out. Please sign in again.' };
+    try {
+      const { data, error } = await supabase.functions.invoke('submit-report', {
+        body: {
+          category: CATEGORY_TO_DB[draft.category],
+          location_name: draft.location,
+          lat: draft.lat,
+          lng: draft.lng,
+          description: draft.description,
+          photo_paths: photoPaths,
+          force_create: true,
+        },
+      });
+      if (error) return { error: await describeError(error) };
+      return { report: acceptNewReport(data.report, uid, user.name) };
+    } catch (e) {
+      return { error: await describeError(e) };
+    }
+  }, [uid, user, acceptNewReport]);
+
+  /* Follow an existing report the citizen's submission duplicated. The uploaded
+     photos for the report they chose NOT to file are cleaned up server-side. */
+  const followReport = useCallback(async (candidate: DuplicateCandidate, photoPaths: string[]): Promise<{ error?: string }> => {
+    const { error } = await supabase.functions.invoke('follow-report', {
+      body: { report_id: candidate.uuid, photo_paths: photoPaths },
+    });
+    if (error) return { error: await describeError(error) };
+    await refresh();
+    return {};
+  }, [refresh]);
+
+  const unfollowReport = useCallback(async (id: string): Promise<{ error?: string }> => {
+    const target = reports.find(r => r.id === id);
+    if (!target?.uuid) return { error: 'Report not found.' };
+    const { error } = await supabase.functions.invoke('unfollow-report', {
+      body: { report_id: target.uuid },
+    });
+    if (error) return { error: await describeError(error) };
+    setReports(prev => prev.filter(r => r.id !== id));
+    void refresh();
+    return {};
+  }, [reports, refresh]);
 
   // AI feature 1 (auto-categorisation) now runs server-side at submission time
   // via the external CV service (see submit-report); there is no longer a
@@ -471,9 +564,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<StoreValue>(() => ({
     authReady, user, reports, crews, notifications, unreadCount,
-    signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, reopenReport, cancelReport, markAllRead,
+    signIn, signUp, signOut, sendPasswordReset, updatePassword,
+    submitReport, submitAnyway, followReport, unfollowReport, reopenReport, cancelReport, markAllRead,
   }), [authReady, user, reports, crews, notifications, unreadCount,
-       signIn, signUp, signOut, sendPasswordReset, updatePassword, submitReport, reopenReport, cancelReport, markAllRead]);
+       signIn, signUp, signOut, sendPasswordReset, updatePassword,
+       submitReport, submitAnyway, followReport, unfollowReport, reopenReport, cancelReport, markAllRead]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

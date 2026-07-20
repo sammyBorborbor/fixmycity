@@ -11,7 +11,7 @@ update the relevant line here.
 Dumping, Blocked Drain, Broken Streetlight) · 4 roles (Citizen, Officer, Field Crew,
 Administrator) · Progressive Web App.
 
-**Last updated:** 2026-07-17
+**Last updated:** 2026-07-20
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -32,7 +32,7 @@ Administrator) · Progressive Web App.
 
 ## M1 — Database schema, RLS & seed
 
-✅ **9 migrations applied** (`supabase/migrations/`):
+✅ **15 migrations applied** (`supabase/migrations/`):
 
 - Full schema: `crews`, `profiles`, `reports`, `status_transitions`, `notifications`.
 - Enums: `user_role`, `profile_status`, `report_category`, `report_status` (7 states),
@@ -193,6 +193,23 @@ anti-corruption client that translates its vocabulary to ours.
   `duplicate_status`, `detected_objects`, `perceptual_hash` to `reports`.
 - **Config:** `IMAGE_MODEL_URL` = the CV API base URL; `IMAGE_MODEL_API_KEY` optional.
 
+✅ **Follow-a-duplicate (citizen-facing dedup).** When the CV service flags a citizen's
+submission as a strong duplicate (`duplicate_status = 'duplicate'`) of an existing report,
+`submit-report` does **not** create a report — it returns the candidate and the citizen
+chooses on the confirmation screen: **Follow it** (subscribe, no duplicate filed) or **submit
+anyway** (`force_create` re-call that skips the CV step). A report is now many-to-many with
+citizens via the new `report_followers` join table (migration
+`20260720120000_report_followers.sql`), and `transition-report` fans out every status
+notification + email to the reporter **plus all followers**. New `follow-report` /
+`unfollow-report` edge functions (service-role; `follow-report` also cleans up the orphaned
+uploaded photos, since the browser has no storage-DELETE policy). Privacy (Act 843): a
+follower reads the full followed report but never the owner's identity (profiles are
+read-own/staff-only under RLS); a denormalised `reports.follower_count` shows "N following"
+without exposing who. Citizen UI: duplicate-choice view in `ReportFlow`, "Following" pill in
+My Reports, follower count + Unfollow on the detail screen (reporter-only Reopen/Cancel hidden
+on followed reports). **Known limitation:** on the follow path the CV corpus keeps an orphaned
+external report (the service exposes no delete endpoint) — harmless dedup-corpus noise.
+
 **Still to confirm against the live service (see `TODO(cv-api)` in `_shared/image-model.ts`):**
 (1) the exact "not environmental" signal — we currently read the returned report's
 `status === 'rejected'`; (2) that `duplicate_of_report_id` / `/duplicates` use the CV
@@ -274,6 +291,16 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 ## Recent changes (newest first)
 
 Distilled from git history:
+
+1. Follow-a-duplicate (multi-follower notifications). When the CV service flags a submission as
+   a strong duplicate, `submit-report` returns the existing report as a candidate instead of
+   filing a new one, and the citizen chooses to follow it or submit anyway (`force_create`).
+   New `report_followers` join table + `reports.follower_count` counter (migration
+   `20260720120000_report_followers.sql`), a follower SELECT policy on `reports`, and new
+   `follow-report` / `unfollow-report` edge functions. `transition-report` now fans out every
+   notification + email to the reporter plus all followers. Citizen UI: duplicate-choice screen,
+   "Following" pill, follower count + Unfollow. Owner identity stays hidden (RLS); only the
+   aggregate count is shown. Known limitation: orphaned CV external report on the follow path.
 
 1. AWMA jurisdiction gate on report location. `submit-report` now rejects any point outside
    Ayawaso West (`422 outside_awma`) against the real OSM boundary polygon

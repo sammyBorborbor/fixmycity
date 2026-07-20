@@ -10,12 +10,14 @@ import { ReportPhotos } from '../components/PhotoBox.tsx';
 
 export default function ReportDetail() {
   const { id } = useParams();
-  const { reports, reopenReport, cancelReport } = useStore();
+  const { reports, reopenReport, cancelReport, unfollowReport } = useStore();
   const navigate = useNavigate();
   const [reopening, setReopening] = useState(false);
   const [reopenError, setReopenError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [unfollowing, setUnfollowing] = useState(false);
+  const [unfollowError, setUnfollowError] = useState<string | null>(null);
   const report = reports.find(r => r.id === id);
 
   if (!report) return <Navigate to="/reports" replace />;
@@ -39,6 +41,15 @@ export default function ReportDetail() {
     navigate('/reports', { replace: true });
   }
 
+  async function unfollow() {
+    if (!report || unfollowing) return;
+    setUnfollowing(true);
+    setUnfollowError(null);
+    const { error } = await unfollowReport(report.id);
+    if (error) { setUnfollowing(false); setUnfollowError(error); return; }
+    navigate('/reports', { replace: true });
+  }
+
   return (
     <div className="fade-in pb-6">
       {/* photo header */}
@@ -58,7 +69,20 @@ export default function ReportDetail() {
             <p className="text-sm text-muted flex items-center gap-1"><Icon name="MapPin" size={13} /> {report.location}</p>
           </div>
         </div>
-        <p className="font-mono text-xs text-muted mt-2">{report.id}</p>
+        <div className="flex items-center justify-between mt-2 gap-2">
+          <p className="font-mono text-xs text-muted">{report.id}</p>
+          {(report.followerCount ?? 0) > 0 && (
+            <span className="text-[11px] text-muted flex items-center gap-1">
+              <Icon name="Users" size={12} />
+              {report.followerCount} {report.followerCount === 1 ? 'person' : 'people'} following
+            </span>
+          )}
+        </div>
+        {report.following && (
+          <div className="mt-3 flex items-center gap-2 text-sm bg-ocean/5 ring-1 ring-ocean/15 rounded-xl px-3 py-2 text-ocean">
+            <Icon name="Bell" size={15} /> You're following this report — we'll notify you of every update.
+          </div>
+        )}
 
         <p className="text-sm text-ink mt-3 bg-white rounded-xl ring-1 ring-black/5 p-3 leading-relaxed">{report.description}</p>
 
@@ -74,7 +98,8 @@ export default function ReportDetail() {
           <Timeline report={report} />
         </div>
 
-        {report.status === 'Resolved' && (
+        {/* reporter-only actions: hidden on reports the user merely follows */}
+        {!report.following && report.status === 'Resolved' && (
           <div className="mt-4">
             <Btn variant="danger" icon="RotateCcw" className="w-full" onClick={reopen} disabled={reopening}>
               {reopening ? 'Reopening…' : 'Reopen — issue not fixed'}
@@ -84,13 +109,24 @@ export default function ReportDetail() {
           </div>
         )}
 
-        {report.status === 'Submitted' && (
+        {!report.following && report.status === 'Submitted' && (
           <div className="mt-4">
             <Btn variant="danger" icon="Trash2" className="w-full" onClick={cancel} disabled={cancelling}>
               {cancelling ? 'Cancelling…' : 'Cancel report'}
             </Btn>
             {cancelError && <p className="text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mt-2">{cancelError}</p>}
             <p className="text-center text-[11px] text-muted mt-2">You can cancel while it is still Submitted, before AWMA acknowledges it.</p>
+          </div>
+        )}
+
+        {/* unfollow: only on reports the user follows (not their own) */}
+        {report.following && (
+          <div className="mt-4">
+            <Btn variant="outline" icon="BellOff" className="w-full" onClick={unfollow} disabled={unfollowing}>
+              {unfollowing ? 'Unfollowing…' : 'Unfollow this report'}
+            </Btn>
+            {unfollowError && <p className="text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2 mt-2">{unfollowError}</p>}
+            <p className="text-center text-[11px] text-muted mt-2">You'll stop receiving updates about this report.</p>
           </div>
         )}
       </div>
