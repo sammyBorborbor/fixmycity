@@ -58,7 +58,7 @@ export default function DuplicateReviews() {
   const shown = filter === 'All' ? reviews : reviews.filter(r => r.status === filter.toLowerCase());
 
   return (
-    <div className="p-6 max-w-[1000px]">
+    <div className="p-6 max-w-[1000px] mx-auto">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold text-navy">Duplicate Reviews</h1>
         <span className="text-sm text-muted">{reviews.length} total</span>

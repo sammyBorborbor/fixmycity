@@ -40,7 +40,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-6 max-w-[760px]">
+    <div className="p-6 max-w-[760px] mx-auto">
       <button onClick={() => navigate('/')} className="flex items-center gap-1 text-sm font-semibold text-ocean mb-3"><Icon name="ChevronLeft" size={16} /> Back to console</button>
       <h1 className="text-2xl font-bold text-navy mb-1">Settings</h1>
       <p className="text-sm text-muted mb-5">Preferences for your console</p>

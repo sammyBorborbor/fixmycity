@@ -48,7 +48,7 @@ export default function Crews() {
   }
 
   return (
-    <div className="p-6 max-w-[1100px]">
+    <div className="p-6 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold text-navy">Crews</h1>
         <Btn variant="primary" icon="Plus" onClick={() => setAdding(a => !a)}>New crew</Btn>

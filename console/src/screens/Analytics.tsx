@@ -40,7 +40,7 @@ export default function Analytics() {
   const pts = weeks.map((n, i) => `${(i / (weeks.length - 1)) * 100},${40 - (n / maxW) * 34}`).join(' ');
 
   return (
-    <div className="p-6 max-w-[1100px]">
+    <div className="p-6 max-w-[1100px] mx-auto">
       <h1 className="text-2xl font-bold text-navy mb-1">Analytics</h1>
       <p className="text-sm text-muted mb-5">Operational overview · Greater Accra pilot</p>
 

@@ -34,7 +34,7 @@ export default function CrewReports() {
       </header>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="p-6 max-w-[1000px]">
+        <div className="p-6 max-w-[1000px] mx-auto">
           <div className="flex items-center justify-between mb-1">
             <h1 className="text-2xl font-bold text-navy">My assigned reports</h1>
             <span className="text-sm text-muted">{reports.length} assigned</span>

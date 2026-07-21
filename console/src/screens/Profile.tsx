@@ -40,7 +40,7 @@ export default function Profile() {
   function cancel() { setDraft({ name: user?.name ?? '', phone: user?.phone ?? '' }); setEditing(false); setError(null); }
 
   return (
-    <div className="p-6 max-w-[900px]">
+    <div className="p-6 max-w-[900px] mx-auto">
       <button onClick={() => navigate('/')} className="flex items-center gap-1 text-sm font-semibold text-ocean mb-3"><Icon name="ChevronLeft" size={16} /> Back to console</button>
       <h1 className="text-2xl font-bold text-navy mb-1">My profile</h1>
       <p className="text-sm text-muted mb-5">Manage your AWMA staff account</p>

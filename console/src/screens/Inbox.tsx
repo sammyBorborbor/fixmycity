@@ -46,7 +46,7 @@ export default function Inbox() {
   const clearAll = () => { setCategory('All'); setLocation('All'); setCrew('All'); };
 
   return (
-    <div className="p-6 max-w-[1100px]">
+    <div className="p-6 max-w-[1100px] mx-auto">
       <div className="flex items-center justify-between mb-1">
         <h1 className="text-2xl font-bold text-navy">Inbox</h1>
         <span className="text-sm text-muted">{reports.length} total reports</span>

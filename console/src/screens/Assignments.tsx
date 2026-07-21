@@ -12,7 +12,7 @@ export default function Assignments() {
   const byCrew = crews.map(c => ({ crew: c, items: assigned.filter(r => r.crew === c.id) }));
 
   return (
-    <div className="p-6 max-w-[1100px]">
+    <div className="p-6 max-w-[1100px] mx-auto">
       <h1 className="text-2xl font-bold text-navy mb-1">Assignments</h1>
       <p className="text-sm text-muted mb-5">Work assigned across field crews</p>
       <div className="grid grid-cols-3 gap-4">
