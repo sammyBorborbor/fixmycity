@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, ZoomControl, useMap, useMapEvents } from 'react-leaflet';
+import type { Map as LeafletMap } from 'leaflet';
 import Icon from './Icon.tsx';
 import Btn from './Btn.tsx';
 import CenterPin from './CenterPin.tsx';
-import { reverseGeocode } from '../lib/geo.ts';
+import { reverseGeocode, searchPlaces } from '../lib/geo.ts';
+import type { PlaceResult } from '../lib/geo.ts';
 import { pointInAwma } from '../lib/awma-boundary.ts';
 
 interface MapLocationModalProps {
@@ -49,6 +51,14 @@ export default function MapLocationModal({ initialPosition, initialHint, onConfi
   const posRef = useRef<[number, number]>(initialPosition);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestSeq = useRef(0);
+  const mapRef = useRef<LeafletMap | null>(null);
+
+  // place-search (type-ahead) state
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<PlaceResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSeq = useRef(0);
 
   // debounced reverse-geocode for the live "Near: ..." address; fail-soft
   function fetchHint(lat: number, lng: number) {
@@ -70,10 +80,48 @@ export default function MapLocationModal({ initialPosition, initialHint, onConfi
     fetchHint(lat, lng);
   }
 
+  // debounced forward search; ignores short queries and stale responses, fail-soft
+  function onQueryChange(value: string) {
+    setQuery(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    const q = value.trim();
+    if (q.length < 3) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const seq = ++searchSeq.current;
+    searchDebounceRef.current = setTimeout(() => {
+      searchPlaces(q)
+        .then(list => { if (seq === searchSeq.current) { setResults(list); setSearching(false); } })
+        .catch(() => { if (seq === searchSeq.current) { setResults([]); setSearching(false); } });
+    }, 350);
+  }
+
+  function clearSearch() {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchSeq.current++;
+    setQuery('');
+    setResults([]);
+    setSearching(false);
+  }
+
+  // picking a suggestion drives the map; the resulting moveend flows through
+  // handleMove -> draft position + reverse-geocode + jurisdiction gate.
+  function pickResult(r: PlaceResult) {
+    mapRef.current?.setView([r.lat, r.lng], 16);
+    setHint(r.label); // snappy: show the chosen label until moveend refines it
+    clearSearch();
+  }
+
   // seed the hint for the initial centre if the form didn't hand us one
   useEffect(() => {
     if (initialHint == null) fetchHint(initialPosition[0], initialPosition[1]);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on open
   }, []);
 
@@ -96,18 +144,65 @@ export default function MapLocationModal({ initialPosition, initialHint, onConfi
 
         {/* interactive map with the fixed centre pin */}
         <div className="relative flex-1 min-h-0">
-          <MapContainer center={pos} zoom={16} style={{ height: '100%', width: '100%' }}>
+          <MapContainer ref={mapRef} center={pos} zoom={16} zoomControl={false} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            {/* moved off the top-left so the search bar doesn't cover it */}
+            <ZoomControl position="bottomleft" />
             <CenterReporter onMove={handleMove} />
             <FixSize />
           </MapContainer>
           <CenterPin />
-          <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-500 bg-navy/90 text-white text-[11px] font-medium px-3 py-1.5 rounded-full shadow">
-            Move the map to place the pin
+
+          {/* search box + suggestions overlay */}
+          <div className="absolute top-3 left-3 right-3 z-500">
+            <div className="flex items-center gap-2 bg-white rounded-xl ring-1 ring-black/5 shadow-md px-3 h-11">
+              <Icon name="Search" size={16} className="text-muted shrink-0" />
+              <input
+                value={query}
+                onChange={e => onQueryChange(e.target.value)}
+                placeholder="Search a place or landmark…"
+                className="flex-1 bg-transparent text-sm text-ink placeholder:text-muted focus:outline-none"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              {query && (
+                <button onClick={clearSearch} aria-label="Clear search" className="p-0.5 rounded-md hover:bg-gray-100 active:scale-95 transition">
+                  <Icon name="X" size={15} className="text-muted" />
+                </button>
+              )}
+            </div>
+
+            {query.trim().length >= 3 && (
+              <div className="mt-1.5 bg-white rounded-xl ring-1 ring-black/5 shadow-lg overflow-hidden max-h-56 overflow-y-auto">
+                {searching && results.length === 0 ? (
+                  <p className="text-[13px] text-muted px-3 py-2.5">Searching…</p>
+                ) : results.length === 0 ? (
+                  <p className="text-[13px] text-muted px-3 py-2.5">No matches in this area</p>
+                ) : (
+                  results.map((r, i) => (
+                    <button
+                      key={`${r.lat},${r.lng},${i}`}
+                      onClick={() => pickResult(r)}
+                      className="w-full text-left flex items-start gap-2 px-3 py-2.5 hover:bg-gray-50 active:bg-gray-100 transition border-b border-black/5 last:border-b-0"
+                    >
+                      <Icon name="MapPin" size={15} className="text-ocean shrink-0 mt-0.5" />
+                      <span className="text-[13px] text-ink leading-snug">{r.label}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
+
+          {!query && (
+            <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 z-500 bg-navy/90 text-white text-[11px] font-medium px-3 py-1.5 rounded-full shadow">
+              Move the map to place the pin
+            </div>
+          )}
         </div>
 
         {/* bottom sheet */}

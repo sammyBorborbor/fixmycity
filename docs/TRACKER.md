@@ -238,7 +238,9 @@ citizen `LocationPicker` (geolocate-on-mount, nearest-neighbourhood auto-select,
 Nominatim reverse-geocode as a display hint). The picker is now a compact **non-interactive
 preview** that opens a **full-screen `MapLocationModal`** on tap — a fixed centre pin the
 citizen moves the map under (Uber-style), with a draft-then-Confirm commit and the AWMA
-jurisdiction gate. Removes the old inline-map scroll-vs-pan conflict.
+jurisdiction gate. Removes the old inline-map scroll-vs-pan conflict. The picker also has a
+**place-search type-ahead** (Nominatim `/search`, Ghana + Accra viewbox, debounced) so a
+citizen can type a landmark and jump the map there — no Google Places, no API key.
 
 🟡 **Offline is shell-only** — no `runtimeCaching` for the Supabase host, so no offline data
 or report queueing (network required for all API/storage calls).
@@ -307,7 +309,16 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Full-screen location picker for the citizen report flow. The step-2 map is now a compact,
+1. Place-search type-ahead in the full-screen location picker. New `searchPlaces()` in
+   `citizen/src/lib/geo.ts` calls the same free OpenStreetMap Nominatim service as the
+   reverse-geocode (forward `/search`, `countrycodes=gh` + padded AWMA `viewbox` + `bounded=1`,
+   debounced, fail-soft). A search box in `MapLocationModal` shows suggestions; picking one
+   calls `map.setView(...)`, whose `moveend` reuses the existing draft-position + reverse-geocode
+   + `pointInAwma` flow. Zoom control moved to bottom-left so the search bar doesn't cover it.
+   Deliberately NOT Google Places (would need a paid API key + Google tiles, against the locked
+   design). No new env var, no state-machine/submit change.
+
+2. Full-screen location picker for the citizen report flow. The step-2 map is now a compact,
    locked preview (fixed centre pin + "Tap to adjust on map" chip); tapping it opens a new
    full-screen `MapLocationModal` where the citizen moves the map under a stationary pin,
    sees a live "Near: ..." address, and taps "Confirm location". New `CenterPin` overlay
@@ -316,7 +327,7 @@ Distilled from git history:
    Reuses the existing nearest-neighbourhood, reverse-geocode, and `pointInAwma` gate logic;
    no state-machine or submit-payload change.
 
-2. Follow-a-duplicate (multi-follower notifications). When the CV service flags a submission as
+3. Follow-a-duplicate (multi-follower notifications). When the CV service flags a submission as
    a strong duplicate, `submit-report` returns the existing report as a candidate instead of
    filing a new one, and the citizen chooses to follow it or submit anyway (`force_create`).
    New `report_followers` join table + `reports.follower_count` counter (migration
