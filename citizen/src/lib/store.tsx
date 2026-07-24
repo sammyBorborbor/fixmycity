@@ -19,7 +19,10 @@ export type StatusName =
   | 'Submitted' | 'Acknowledged' | 'Assigned' | 'In Progress'
   | 'Resolved' | 'Rejected' | 'Reopened';
 
-export type CategoryName = 'Illegal Dumping' | 'Blocked Drain' | 'Broken Streetlight';
+export type CategoryName =
+  | 'Illegal Dumping' | 'Blocked Drain' | 'Broken Streetlight'
+  | 'Flooding' | 'Pothole' | 'Pollution' | 'Broken Public Facility'
+  | 'Poor Sanitation' | 'Other';
 
 export type LocationName =
   | 'East Legon' | 'Okponglo' | 'Dzorwulu' | 'Abelemkpe'
@@ -141,9 +144,15 @@ export const CANONICAL: StatusName[] = ['Submitted', 'Acknowledged', 'Assigned',
 
 /* ---- Categories -------------------------------------------------------- */
 export const CATEGORIES: Record<CategoryName, CategoryInfo> = {
-  'Illegal Dumping':    { icon: 'Trash2',    blurb: 'Waste dumped in unauthorised areas', accent: '#1E5F8E' },
-  'Blocked Drain':      { icon: 'WavesHorizontal', blurb: 'Clogged gutters & storm drains', accent: '#1E5F8E' },
-  'Broken Streetlight': { icon: 'Lightbulb', blurb: 'Faulty or dark street lighting',     accent: '#C8932F' },
+  'Illegal Dumping':        { icon: 'Trash2',         blurb: 'Waste dumped in unauthorised areas',       accent: '#1E5F8E' },
+  'Blocked Drain':          { icon: 'WavesHorizontal', blurb: 'Clogged gutters & storm drains',           accent: '#1E5F8E' },
+  'Broken Streetlight':     { icon: 'Lightbulb',      blurb: 'Faulty or dark street lighting',           accent: '#C8932F' },
+  'Flooding':               { icon: 'Droplets',       blurb: 'Standing water or flooded roads & homes',  accent: '#1E5F8E' },
+  'Pothole':                { icon: 'Construction',   blurb: 'Damaged road surface or potholes',         accent: '#C8932F' },
+  'Pollution':              { icon: 'Factory',        blurb: 'Air, water or ground pollution',           accent: '#0B2545' },
+  'Broken Public Facility': { icon: 'Wrench',         blurb: 'Damaged public property or facilities',    accent: '#1E5F8E' },
+  'Poor Sanitation':        { icon: 'Biohazard',      blurb: 'Open sewage, waste or sanitation hazards', accent: '#C8932F' },
+  'Other':                  { icon: 'CircleHelp',     blurb: 'Another public issue not listed above',    accent: '#6B7280' },
 };
 
 /* ---- DB <-> UI mapping -------------------------------------------------- */
@@ -158,9 +167,13 @@ const DB_TO_STATUS: Record<ReportRow['status'], StatusName> = {
 };
 const DB_TO_CATEGORY: Record<ReportRow['category'], CategoryName> = {
   dumping: 'Illegal Dumping', drain: 'Blocked Drain', streetlight: 'Broken Streetlight',
+  flooding: 'Flooding', pothole: 'Pothole', pollution: 'Pollution',
+  broken_public_facility: 'Broken Public Facility', sanitation: 'Poor Sanitation', other: 'Other',
 };
 const CATEGORY_TO_DB: Record<CategoryName, ReportRow['category']> = {
   'Illegal Dumping': 'dumping', 'Blocked Drain': 'drain', 'Broken Streetlight': 'streetlight',
+  'Flooding': 'flooding', 'Pothole': 'pothole', 'Pollution': 'pollution',
+  'Broken Public Facility': 'broken_public_facility', 'Poor Sanitation': 'sanitation', 'Other': 'other',
 };
 const DEPT_LABEL: Record<CrewRow['department'], string> = {
   sanitation: 'Sanitation', drainage: 'Drainage', electrical: 'Electrical',

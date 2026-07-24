@@ -9,8 +9,11 @@ describe('status / category model', () => {
     // canonical steps are a subset of the full status set
     for (const s of CANONICAL) expect(STATUS[s]).toBeDefined();
   });
-  it('defines the three pilot categories', () => {
-    expect(Object.keys(CATEGORIES).sort()).toEqual(['Blocked Drain', 'Broken Streetlight', 'Illegal Dumping']);
+  it('defines all nine CV-aligned categories', () => {
+    expect(Object.keys(CATEGORIES).sort()).toEqual([
+      'Blocked Drain', 'Broken Public Facility', 'Broken Streetlight', 'Flooding',
+      'Illegal Dumping', 'Other', 'Pollution', 'Poor Sanitation', 'Pothole',
+    ]);
   });
 });
 

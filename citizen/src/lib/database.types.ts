@@ -342,7 +342,7 @@ export type Database = {
     Enums: {
       crew_department: "sanitation" | "drainage" | "electrical"
       profile_status: "active" | "suspended"
-      report_category: "dumping" | "drain" | "streetlight"
+      report_category: "dumping" | "drain" | "streetlight" | "flooding" | "pothole" | "pollution" | "broken_public_facility" | "sanitation" | "other"
       report_status:
         | "submitted"
         | "acknowledged"
@@ -481,7 +481,7 @@ export const Constants = {
     Enums: {
       crew_department: ["sanitation", "drainage", "electrical"],
       profile_status: ["active", "suspended"],
-      report_category: ["dumping", "drain", "streetlight"],
+      report_category: ["dumping", "drain", "streetlight", "flooding", "pothole", "pollution", "broken_public_facility", "sanitation", "other"],
       report_status: [
         "submitted",
         "acknowledged",
