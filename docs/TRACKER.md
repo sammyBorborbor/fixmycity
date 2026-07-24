@@ -7,9 +7,11 @@ update the relevant line here.
 > Note: the top-level [README.md](../README.md) is currently stale (it still describes an
 > in-memory demo store and "any password works"). This tracker reflects the real state.
 
-**Pilot scope (locked):** Ayawaso West Municipal Assembly (AWMA) · 3 categories (Illegal
-Dumping, Blocked Drain, Broken Streetlight) · 4 roles (Citizen, Officer, Field Crew,
-Administrator) · Progressive Web App.
+**Pilot scope:** Ayawaso West Municipal Assembly (AWMA) · 9 categories aligned to the CV
+service (Illegal Dumping, Blocked Drain, Broken Streetlight, Flooding, Pothole, Pollution,
+Broken Public Facility, Poor Sanitation, Other) · 4 roles (Citizen, Officer, Field Crew,
+Administrator) · Progressive Web App. _(Categories widened 2026-07-24 from the original
+locked three, by team sign-off, to match the AI model's enum.)_
 
 **Last updated:** 2026-07-24
 
@@ -311,7 +313,19 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Table pagination on the console (20 rows/page).** New reusable `Pagination` component +
+1. **Issue categories expanded to match the AI/CV service (3 -> 9).** Added Flooding, Pothole,
+   Pollution, Broken Public Facility, Poor Sanitation and Other alongside the original three,
+   aligning 1:1 with the CV enum. DB: six new `report_category` enum values via
+   `20260724200000_expand_report_category.sql` (applied live). Edge: `submit-report` allow-list
+   + both `image-model.ts` maps now cover all nine, so CV suggestions for the new categories
+   persist instead of collapsing to null, and `other` is exempt from the CV validity gate like
+   streetlight; `submit-report` redeployed. Front-ends: `CATEGORIES` / `CategoryName` / DB<->UI
+   maps in both `store.tsx` + regenerated `database.types.ts` — every category-driven screen
+   (report cards, badges, Inbox filter, Analytics) adapts automatically. **Scope note:**
+   deliberately widens the previously locked 3-category pilot (team sign-off). Pending redeploy
+   (non-blocking, fallbacks in place): `transition-report` notification labels and the two
+   duplicate-review functions' candidate-chip category mapping.
+2. **Table pagination on the console (20 rows/page).** New reusable `Pagination` component +
    `usePaginated` hook applied to every console table: the Inbox/CrewReports reports table
    (`DataTable`), the staff `Users` table, and the `Citizens` directory. Prev/Next with a
    "Showing A-B of Z" summary; auto-hidden when everything fits one page; resets to page 1 when
