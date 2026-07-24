@@ -5,3 +5,5 @@ CLAUDE.md
 .superpowers
 .playwright-mcp/
 data/raw_images/
+docs/*.pptx
+docs/presentation/
