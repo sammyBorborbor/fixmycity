@@ -1,6 +1,7 @@
 import StatusPill from './StatusPill.tsx';
 import CategoryBadge from './CategoryBadge.tsx';
 import Icon from './Icon.tsx';
+import Pagination, { usePaginated } from './Pagination.tsx';
 import { crewName, relTime } from '../lib/store.tsx';
 import type { Report } from '../lib/store.tsx';
 
@@ -17,7 +18,11 @@ interface DataTableProps {
    caller. `compact` (a per-user setting) tightens the row padding. */
 export default function DataTable({ rows, openRow, activeId, unread, compact = false, emptyLabel = 'No reports.' }: DataTableProps) {
   const cell = compact ? 'px-4 py-1.5' : 'px-4 py-3';
+  // reset to page 1 when the filtered/sorted set changes (filter chips, search)
+  const resetKey = `${rows.length}|${rows[0]?.id ?? ''}`;
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePaginated(rows, 20, resetKey);
   return (
+    <>
     <div className="bg-white rounded-xl ring-1 ring-black/5 shadow-sm overflow-hidden">
       <table className="w-full text-sm">
         <thead>
@@ -31,7 +36,7 @@ export default function DataTable({ rows, openRow, activeId, unread, compact = f
           </tr>
         </thead>
         <tbody>
-          {rows.map(r => (
+          {pageItems.map(r => (
             <tr key={r.id} onClick={() => openRow(r.id)}
               className={`border-b border-gray-50 last:border-0 cursor-pointer transition ${activeId === r.id ? 'bg-ocean/5' : 'hover:bg-gray-50'}`}>
               <td className={`${cell} font-mono text-[13px] text-navy font-medium whitespace-nowrap`}>
@@ -65,5 +70,7 @@ export default function DataTable({ rows, openRow, activeId, unread, compact = f
         </tbody>
       </table>
     </div>
+    <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onChange={setPage} />
+    </>
   );
 }

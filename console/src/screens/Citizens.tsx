@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
+import Pagination, { usePaginated } from '../components/Pagination.tsx';
 
 /* Read-only directory of registered citizens (Administrator/Supervisor only).
    Data comes from the store's `citizens` (profiles where role='citizen', with an
@@ -20,6 +21,7 @@ export default function Citizens() {
   }, [citizens, query]);
 
   const activeCount = citizens.filter(c => c.active).length;
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePaginated(shown, 20, query);
 
   return (
     <div className="p-6 max-w-[1100px] mx-auto">
@@ -49,7 +51,7 @@ export default function Citizens() {
             </tr>
           </thead>
           <tbody>
-            {shown.map(c => (
+            {pageItems.map(c => (
               <tr key={c.id} className="border-b border-gray-50 last:border-0">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -74,6 +76,7 @@ export default function Citizens() {
           </p>
         )}
       </div>
+      <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onChange={setPage} />
     </div>
   );
 }

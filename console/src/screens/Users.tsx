@@ -3,6 +3,7 @@ import { useStore, ROLES, UNITS } from '../lib/store.tsx';
 import type { RoleName, Staff } from '../lib/store.tsx';
 import Btn from '../components/Btn.tsx';
 import ConfirmDialog from '../components/ConfirmDialog.tsx';
+import Pagination, { usePaginated } from '../components/Pagination.tsx';
 import { useToast } from '../components/Toast.tsx';
 
 const roleStyle: Record<RoleName, string> = {
@@ -34,6 +35,7 @@ export default function Users() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Pending | null>(null);
   const [form, setForm] = useState<InviteForm>({ name: '', email: '', role: 'Officer', unit: UNITS[0] });
+  const { pageItems, page, setPage, totalPages, total, pageSize } = usePaginated(staff, 20, staff.length);
 
   async function invite() {
     if (!form.name.trim() || !form.email.trim() || busy) return;
@@ -133,7 +135,7 @@ export default function Users() {
             </tr>
           </thead>
           <tbody>
-            {staff.map(u => {
+            {pageItems.map(u => {
               const rowBusy = busyId === u.id;
               const isSelf = u.email === user?.email;
               return (
@@ -189,6 +191,7 @@ export default function Users() {
           </tbody>
         </table>
       </div>
+      <Pagination page={page} totalPages={totalPages} total={total} pageSize={pageSize} onChange={setPage} />
 
       {confirm && (
         <ConfirmDialog

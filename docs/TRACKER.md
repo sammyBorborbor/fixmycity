@@ -311,7 +311,12 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Follower visibility on the console.** Reports now show how many residents follow them
+1. **Table pagination on the console (20 rows/page).** New reusable `Pagination` component +
+   `usePaginated` hook applied to every console table: the Inbox/CrewReports reports table
+   (`DataTable`), the staff `Users` table, and the `Citizens` directory. Prev/Next with a
+   "Showing A-B of Z" summary; auto-hidden when everything fits one page; resets to page 1 when
+   the filter/search changes. Client-side only.
+2. **Follower visibility on the console.** Reports now show how many residents follow them
    (via the follow-a-duplicate flow) in two places: a `N follower(s)` chip on the reporter
    line of the report detail panel, and a compact count badge beside the location in the Inbox
    table (hidden when zero). Read-only: `follower_count` mapped into the console `Report` type
