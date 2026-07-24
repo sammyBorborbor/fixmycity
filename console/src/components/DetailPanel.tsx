@@ -165,6 +165,12 @@ export default function DetailPanel({ report, onClose }: { report: Report | null
               </span>
               <span className="text-ink font-medium">{report.reporterName}</span>
               <span className="text-muted">· reporter</span>
+              {report.followerCount > 0 && (
+                <span title="Residents following this report (submitted the same issue)"
+                  className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-ocean bg-blue-50 ring-1 ring-blue-100 rounded-full px-2.5 py-1">
+                  <Icon name="Users" size={12} /> {report.followerCount} {report.followerCount === 1 ? 'follower' : 'followers'}
+                </span>
+              )}
             </div>
             <p className="text-sm text-ink mt-2 bg-white rounded-xl ring-1 ring-black/5 p-3 leading-relaxed">{report.description}</p>
             {report.aiSuggestedCategory != null && report.aiConfidence != null && (

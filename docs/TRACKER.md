@@ -311,7 +311,13 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Citizens directory** on the console (Administrator/Supervisor only): a new read-only
+1. **Follower visibility on the console.** Reports now show how many residents follow them
+   (via the follow-a-duplicate flow) in two places: a `N follower(s)` chip on the reporter
+   line of the report detail panel, and a compact count badge beside the location in the Inbox
+   table (hidden when zero). Read-only: `follower_count` mapped into the console `Report` type
+   (`store.tsx` `mapReport`) and surfaced in `DetailPanel.tsx` + `DataTable.tsx`. No backend
+   change (staff already read `reports.follower_count`).
+2. **Citizens directory** on the console (Administrator/Supervisor only): a new read-only
    `/citizens` page listing every `role='citizen'` profile with avatar, email, join date,
    report count, and status, plus a name/email search. Data via a direct RLS-protected
    `profiles` select with an embedded `reports(count)` (no migration, no edge function —

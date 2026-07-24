@@ -1,5 +1,6 @@
 import StatusPill from './StatusPill.tsx';
 import CategoryBadge from './CategoryBadge.tsx';
+import Icon from './Icon.tsx';
 import { crewName, relTime } from '../lib/store.tsx';
 import type { Report } from '../lib/store.tsx';
 
@@ -42,7 +43,17 @@ export default function DataTable({ rows, openRow, activeId, unread, compact = f
               <td className={cell}>
                 <span className="flex items-center gap-2 text-ink"><CategoryBadge category={r.category} size={compact ? 22 : 28} />{r.category}</span>
               </td>
-              <td className={`${cell} text-muted whitespace-nowrap`}>{r.location}</td>
+              <td className={`${cell} text-muted whitespace-nowrap`}>
+                <span className="inline-flex items-center gap-2">
+                  {r.location}
+                  {r.followerCount > 0 && (
+                    <span title={`${r.followerCount} resident${r.followerCount === 1 ? '' : 's'} following`}
+                      className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-ocean bg-blue-50 ring-1 ring-blue-100 rounded-full px-1.5 py-0.5">
+                      <Icon name="Users" size={11} /> {r.followerCount}
+                    </span>
+                  )}
+                </span>
+              </td>
               <td className={`${cell} text-muted whitespace-nowrap`}>{relTime(r.timeline[0].timestamp)}</td>
               <td className={cell}><StatusPill status={r.status} /></td>
               <td className={`${cell} text-muted whitespace-nowrap`}>{r.crew ? crewName(r.crew) : <span className="text-gray-300">—</span>}</td>

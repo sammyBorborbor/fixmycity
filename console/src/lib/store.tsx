@@ -57,6 +57,7 @@ export interface Report {
   hasPhoto: boolean;
   photoPaths: string[];       // storage paths in the report-photos bucket (1-5)
   reporterName?: string;      // reporter's display name
+  followerCount: number;      // residents following this report (duplicate offers accepted)
   rejectReason?: string;
   aiSuggestedCategory?: CategoryName | null;
   aiConfidence?: number | null;
@@ -391,6 +392,7 @@ function mapReport(
     hasPhoto: row.photo_urls.length > 0,
     photoPaths: row.photo_urls,
     reporterName: (row.reporter_id && names.get(row.reporter_id)) || 'Resident',
+    followerCount: row.follower_count ?? 0,
     rejectReason: rejected?.note ?? undefined,
     aiSuggestedCategory: row.ai_suggested_category ? DB_TO_CATEGORY[row.ai_suggested_category] : null,
     aiConfidence: row.ai_confidence,
