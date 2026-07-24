@@ -25,18 +25,31 @@
 // perceptual_hash, detected_objects); (2) /duplicates returns the CV service's own
 // integer report ids so external_report_id reverse-mapping works.
 
-// ---- Category mapping (CV API enum <-> our 3 categories) -------------------
+// ---- Category mapping (CV API enum <-> our categories) ---------------------
 // Their enum: refuse_dump, blocked_drain, flooding, pothole, pollution,
-// broken_public_facility, sanitation, other. Only two map onto ours; the rest
-// (including anything we can't classify) yield a null suggestion so the citizen's
-// own choice stands. Their enum has NO streetlight — see the ours->theirs map.
+// broken_public_facility, sanitation, other. Our enum now aligns 1:1 with theirs
+// (the six new values share their names), plus our legacy streetlight which their
+// enum has no class for. Anything still unmapped yields a null suggestion so the
+// citizen's own choice stands.
 const THEIR_TO_OUR: Record<string, string> = {
   refuse_dump: 'dumping',
   blocked_drain: 'drain',
+  flooding: 'flooding',
+  pothole: 'pothole',
+  pollution: 'pollution',
+  broken_public_facility: 'broken_public_facility',
+  sanitation: 'sanitation',
+  other: 'other',
 };
 const OUR_TO_THEIR: Record<string, string> = {
   dumping: 'refuse_dump',
   drain: 'blocked_drain',
+  flooding: 'flooding',
+  pothole: 'pothole',
+  pollution: 'pollution',
+  broken_public_facility: 'broken_public_facility',
+  sanitation: 'sanitation',
+  other: 'other',
   // their enum has no true streetlight class; broken_public_facility is the
   // closest fit, so a submitted streetlight report is recorded meaningfully on
   // their side (their model still can't visually detect streetlights, hence the

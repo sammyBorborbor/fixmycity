@@ -55,6 +55,8 @@ const STATUS_BADGE: Record<Status, { bg: string; text: string }> = {
 };
 const CATEGORY_LABEL: Record<string, string> = {
   dumping: 'Illegal Dumping', drain: 'Blocked Drain', streetlight: 'Broken Streetlight',
+  flooding: 'Flooding', pothole: 'Pothole', pollution: 'Pollution',
+  broken_public_facility: 'Broken Public Facility', sanitation: 'Poor Sanitation', other: 'Other',
 };
 
 interface TransitionEmailParams {

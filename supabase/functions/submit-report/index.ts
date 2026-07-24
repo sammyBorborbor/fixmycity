@@ -12,7 +12,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const CATEGORIES = ['dumping', 'drain', 'streetlight'];
+const CATEGORIES = [
+  'dumping', 'drain', 'streetlight',
+  'flooding', 'pothole', 'pollution', 'broken_public_facility', 'sanitation', 'other',
+];
+// Categories the CV model can't reliably confirm visually, so we never let its
+// "not environmental" verdict block them: streetlight (no CV class) and other
+// (an explicit catch-all for issues the model isn't expected to recognise).
+const CV_VALIDITY_EXEMPT = ['streetlight', 'other'];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -128,10 +135,11 @@ Deno.serve(async (req) => {
           lat,
           lng,
         });
-        // streetlight safeguard: the CV model has no streetlight class and may
-        // wrongly reject a valid broken-streetlight photo as "not environmental",
-        // so we ignore that verdict for streetlight reports (see image-model.ts).
-        if (cv.verdict === 'not_environmental' && category !== 'streetlight') {
+        // Validity-gate safeguard: the CV model has no streetlight class (and
+        // "other" is a deliberate catch-all), so it may wrongly reject a valid
+        // photo as "not environmental" for those; ignore that verdict for the
+        // exempt categories (see image-model.ts and CV_VALIDITY_EXEMPT above).
+        if (cv.verdict === 'not_environmental' && !CV_VALIDITY_EXEMPT.includes(category)) {
           return json({
             error: "This photo doesn't look like a civic issue. Please retake it showing the problem clearly.",
             code: 'photo_not_environmental',
