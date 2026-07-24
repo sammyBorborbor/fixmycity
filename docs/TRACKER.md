@@ -11,7 +11,7 @@ update the relevant line here.
 Dumping, Blocked Drain, Broken Streetlight) · 4 roles (Citizen, Officer, Field Crew,
 Administrator) · Progressive Web App.
 
-**Last updated:** 2026-07-20
+**Last updated:** 2026-07-24
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -290,7 +290,9 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [~] External CV API wired into `_shared/image-model.ts` (submit-time classify + dedup + validity, M5).
   Remaining: confirm the live contract (invalid-photo signal, id semantics), a `streetlight` class,
   and a stable host — see M5 `TODO(cv-api)`.
-- [ ] Add `supabase/seed.sql` (config already expects it) (M1).
+- [ ] Add `supabase/seed.sql` (config already expects it) (M1). Live demo population now
+  exists separately: `supabase/seed/demo-users.sql` (35 accounts across two blocks;
+  block 1 = 19 applied 2026-07-23, block 2 = 16 back-dated citizens applied 2026-07-24).
 - [x] Persist console Users & Roles (real invite + role/suspend via `manage-users` edge function).
 - [x] Persist console Crew create + availability toggle, Settings prefs, Profile (name/phone).
 - [x] Compute real Analytics values (avg resolution time, resolved-this-week week-over-week delta).
@@ -309,7 +311,32 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Place-search type-ahead in the full-screen location picker. New `searchPlaces()` in
+1. Demo citizen list padded out for the Friday demo: a second `DO` block appended to
+   `supabase/seed/demo-users.sql` adds 16 more **citizen** accounts (35 total in the file)
+   with join dates **back-dated** randomly across the last 21 days (per-row
+   `now() - random()*interval '21 days'`, applied to `auth.users`, `auth.identities`, and an
+   override of the trigger-stamped `profiles.created_at`). New batch uses password `password`;
+   the original 19 keep `FixMyCity2026!` and are untouched. Emails extend the plus-addressing
+   pattern (`trialweb4/sammyborborbor/devsammy20 +7..+12`) plus `sammyowusu+1@hotmail.com`.
+   Idempotent (skips existing emails). Applied to the live project 2026-07-24; verified 16
+   rows with scattered dates and password login for the hotmail + a gmail account.
+2. Resolve-as-dropdown on the console **Duplicate Reviews** screen. The single Resolve button
+   is now a dropdown (reusing TopHeader's account-menu pattern) listing all four CV
+   `DuplicateStatus` values — Duplicate, Possible duplicate, Supporting evidence, and
+   **Reject (not a duplicate)** which maps to the API's `new`. Picking one pre-fills the
+   existing confirm form (resolution shown read-only; "Duplicate of" now only appears for
+   duplicate-type resolutions). Front-end only (`console/src/screens/DuplicateReviews.tsx`);
+   no edge-function/store change — `new` was already in the `CV_RESOLUTIONS` allowlist and
+   `resolveDuplicateReview` forwards the value unchanged through the `duplicate-reviews` proxy.
+2. Demo population seeded into the live project via `supabase/seed/demo-users.sql`
+   (2026-07-23): 19 confirmed accounts — 6 citizens, 4 console staff (spec names:
+   Kofi Mensah Supervisor, Ama Darko Officer, Nii Lartey Dispatcher, Efua Sarpong
+   suspended), 9 field-crew members (3 each in Crews Alpha/Beta/Gamma, leads matching
+   `crews.lead_name`); `member_count` resynced (fixed Crew Gamma's stale 3-with-no-members).
+   Emails are plus-addressed over three real inboxes (`trialweb4+N`, `sammyborborbor+N`,
+   `devsammy20+N` @gmail.com); shared demo password. Idempotent (skips existing emails);
+   login verified via the auth REST API for citizen, crew, and dispatcher accounts.
+2. Place-search type-ahead in the full-screen location picker. New `searchPlaces()` in
    `citizen/src/lib/geo.ts` calls the same free OpenStreetMap Nominatim service as the
    reverse-geocode (forward `/search`, `countrycodes=gh` + padded AWMA `viewbox` + `bounded=1`,
    debounced, fail-soft). A search box in `MapLocationModal` shows suggestions; picking one

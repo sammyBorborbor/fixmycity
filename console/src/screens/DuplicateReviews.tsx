@@ -12,7 +12,7 @@ const RESOLUTIONS = [
   { value: 'duplicate', label: 'Duplicate' },
   { value: 'possible_duplicate', label: 'Possible duplicate' },
   { value: 'supporting_evidence', label: 'Supporting evidence' },
-  { value: 'new', label: 'Not a duplicate (new)' },
+  { value: 'new', label: 'Reject (not a duplicate)' },
 ];
 const RES_LABEL: Record<string, string> = Object.fromEntries(RESOLUTIONS.map(r => [r.value, r.label]));
 
@@ -145,6 +145,7 @@ interface CardProps {
 
 function ReviewCard({ review, canAct, onResolve, onMerge, onDone }: CardProps) {
   const [mode, setMode] = useState<null | 'resolve' | 'merge'>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [resolution, setResolution] = useState('duplicate');
   const [dupOf, setDupOf] = useState('');                                   // externalId as string; '' = none
   const [mergeInto, setMergeInto] = useState(String(review.report.externalId));
@@ -159,9 +160,12 @@ function ReviewCard({ review, canAct, onResolve, onMerge, onDone }: CardProps) {
 
   const submitResolve = async () => {
     setBusy(true); setErr(null);
+    // "Duplicate of" only applies to duplicate-type resolutions; ignore any stale
+    // selection when resolving as reject/supporting evidence.
+    const isDup = resolution === 'duplicate' || resolution === 'possible_duplicate';
     const { error } = await onResolve(review.id, {
       resolution,
-      duplicateOfReportId: dupOf ? Number(dupOf) : null,
+      duplicateOfReportId: isDup && dupOf ? Number(dupOf) : null,
       notes: notes.trim() || undefined,
     });
     setBusy(false);
@@ -206,24 +210,42 @@ function ReviewCard({ review, canAct, onResolve, onMerge, onDone }: CardProps) {
 
       {open && canAct && mode === null && (
         <div className="mt-3 flex gap-2">
-          <Btn size="sm" variant="outline" icon="Check" onClick={() => setMode('resolve')}>Resolve</Btn>
+          <div className="relative">
+            <Btn size="sm" variant="outline" icon="Check" onClick={() => setMenuOpen(o => !o)}>
+              Resolve <Icon name="ChevronDown" size={14} className={`transition ${menuOpen ? 'rotate-180' : ''}`} />
+            </Btn>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl ring-1 ring-black/5 shadow-xl z-50 overflow-hidden fade-in">
+                  {RESOLUTIONS.map(r => (
+                    <button key={r.value}
+                      onClick={() => { setResolution(r.value); setMode('resolve'); setMenuOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-ink hover:bg-gray-50">
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
           <Btn size="sm" variant="outline" icon="GitMerge" onClick={() => setMode('merge')}>Merge</Btn>
         </div>
       )}
 
       {open && mode === 'resolve' && (
         <div className="mt-3 border-t border-gray-100 pt-3 flex flex-col gap-2.5">
-          <label className="text-xs font-semibold text-muted block">Resolution
-            <select value={resolution} onChange={e => setResolution(e.target.value)} className={`${selCls} mt-1`}>
-              {RESOLUTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-semibold text-muted block">Duplicate of (optional)
-            <select value={dupOf} onChange={e => setDupOf(e.target.value)} className={`${selCls} mt-1`}>
-              <option value="">— none —</option>
-              {sides.map(s => <option key={s.externalId} value={s.externalId}>{s.label}</option>)}
-            </select>
-          </label>
+          <p className="text-xs text-muted">
+            Resolving as <span className="font-semibold text-ink">{RES_LABEL[resolution] ?? resolution}</span>
+          </p>
+          {(resolution === 'duplicate' || resolution === 'possible_duplicate') && (
+            <label className="text-xs font-semibold text-muted block">Duplicate of (optional)
+              <select value={dupOf} onChange={e => setDupOf(e.target.value)} className={`${selCls} mt-1`}>
+                <option value="">— none —</option>
+                {sides.map(s => <option key={s.externalId} value={s.externalId}>{s.label}</option>)}
+              </select>
+            </label>
+          )}
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} maxLength={2000}
             placeholder="Notes (optional)" className={selCls} />
           {err && <p className="text-xs text-red-600">{err}</p>}
