@@ -311,7 +311,15 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. Demo citizen list padded out for the Friday demo: a second `DO` block appended to
+1. **Citizens directory** on the console (Administrator/Supervisor only): a new read-only
+   `/citizens` page listing every `role='citizen'` profile with avatar, email, join date,
+   report count, and status, plus a name/email search. Data via a direct RLS-protected
+   `profiles` select with an embedded `reports(count)` (no migration, no edge function —
+   `profiles: staff read all` already permits it). New `console/src/screens/Citizens.tsx`;
+   `loadCitizens` + `citizens`/`Citizen` in `store.tsx` (loaded in `loadData`, so the reports
+   realtime subscription keeps counts fresh); nav item + guarded route; `/citizens` added to
+   Administrator + Supervisor perms only (phone omitted for PII minimisation).
+2. Demo citizen list padded out for the Friday demo: a second `DO` block appended to
    `supabase/seed/demo-users.sql` adds 16 more **citizen** accounts (35 total in the file)
    with join dates **back-dated** randomly across the last 21 days (per-row
    `now() - random()*interval '21 days'`, applied to `auth.users`, `auth.identities`, and an

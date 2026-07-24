@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { to: '/duplicates',  label: 'Duplicate Reviews', icon: 'Copy' },
   { to: '/crews',       label: 'Crews',       icon: 'Users' },
   { to: '/analytics',   label: 'Analytics',   icon: 'BarChart3' },
+  { to: '/citizens',    label: 'Citizens',    icon: 'UsersRound' },
   { to: '/users',       label: 'Users',       icon: 'UserCog' },
   { to: '/audit',       label: 'Audit Log',   icon: 'ScrollText' },
 ];

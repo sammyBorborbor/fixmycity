@@ -125,6 +125,18 @@ export interface Staff {
   crewId: string | null;
 }
 
+// A registered citizen (profiles.role='citizen') shown in the read-only
+// Citizens directory. reportCount is filed reports (reports.reporter_id).
+export interface Citizen {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  initials: string;
+  joinedAt: string;
+  reportCount: number;
+}
+
 export interface Operator {
   id: string;
   name: string;
@@ -166,8 +178,8 @@ const ALL_ACTIONS: TransitionAction[] = ['acknowledge', 'assign', 'reject', 'in_
 const BASE_PAGES = ['/', '/map', '/assignments', '/duplicates', '/profile', '/settings'];
 
 const ROLE_PERMS: Record<RoleName, Perms> = {
-  Administrator: { pages: [...BASE_PAGES, '/crews', '/analytics', '/users', '/audit'], actions: new Set(ALL_ACTIONS), canManageUsers: true,  canManageCrews: true,  isCrew: false },
-  Supervisor:    { pages: [...BASE_PAGES, '/crews', '/analytics', '/audit'],           actions: new Set(ALL_ACTIONS), canManageUsers: false, canManageCrews: true,  isCrew: false },
+  Administrator: { pages: [...BASE_PAGES, '/crews', '/analytics', '/citizens', '/users', '/audit'], actions: new Set(ALL_ACTIONS), canManageUsers: true,  canManageCrews: true,  isCrew: false },
+  Supervisor:    { pages: [...BASE_PAGES, '/crews', '/analytics', '/citizens', '/audit'],           actions: new Set(ALL_ACTIONS), canManageUsers: false, canManageCrews: true,  isCrew: false },
   Officer:       { pages: [...BASE_PAGES],                                             actions: new Set(ALL_ACTIONS), canManageUsers: false, canManageCrews: false, isCrew: false },
   Dispatcher:    { pages: [...BASE_PAGES, '/crews'],                                   actions: new Set(['acknowledge', 'assign'] as TransitionAction[]), canManageUsers: false, canManageCrews: true, isCrew: false },
   Viewer:        { pages: [...BASE_PAGES, '/analytics', '/audit'],                     actions: new Set(),            canManageUsers: false, canManageCrews: false, isCrew: false },
@@ -188,6 +200,7 @@ export interface StoreValue {
   reports: Report[];
   crews: Crew[];
   staff: Staff[];
+  citizens: Citizen[];
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
@@ -335,6 +348,20 @@ function mapStaff(row: ProfileRow): Staff {
   };
 }
 
+// A citizen profile row (+ embedded reports count) -> Citizen directory entry.
+function mapCitizen(row: ProfileRow & { reports?: { count: number }[] }): Citizen {
+  const name = row.full_name || row.email || 'Unknown';
+  return {
+    id: row.id,
+    name,
+    email: row.email ?? '',
+    active: row.status === 'active',
+    initials: initialsOf(name),
+    joinedAt: row.created_at,
+    reportCount: row.reports?.[0]?.count ?? 0,
+  };
+}
+
 // Resolve a transition's actor to a display name using lookup maps the console
 // can read (staff see all profiles; crews are readable by any signed-in user).
 function actorLabel(t: TransitionRow, names: Map<string, string>, crewId: string | null): string {
@@ -393,6 +420,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Real staff directory, loaded from `profiles` (see loadStaff). Writes go
   // through the manage-users edge function, mirroring the report state machine.
   const [staff, setStaff] = useState<Staff[]>([]);
+  // Registered citizens (read-only directory; Administrator/Supervisor only).
+  const [citizens, setCitizens] = useState<Citizen[]>([]);
   // per-user console preferences, loaded from profiles.settings on sign-in
   const [settings, setSettings] = useState<ConsoleSettings>(DEFAULT_SETTINGS);
 
@@ -412,10 +441,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setStaff((rows ?? []).map(r => mapStaff(r as ProfileRow)));
   }, []);
 
+  /* Citizens directory: every profile with role='citizen', newest first, with a
+     one-round-trip embedded count of the reports they've filed. Read via the same
+     staff-read-all RLS as loadStaff; no writes, so no edge function. */
+  const loadCitizens = useCallback(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, status, created_at, reports:reports!reports_reporter_id_fkey(count)')
+      .eq('role', 'citizen')
+      .order('created_at', { ascending: false });
+    setCitizens((data ?? []).map(r => mapCitizen(r as ProfileRow & { reports?: { count: number }[] })));
+  }, []);
+
   /* Load crews + reports (+ profile names for actor labels). Staff RLS returns
      every report and profile, so the console sees the whole operation. */
   const loadData = useCallback(async () => {
-    await loadStaff();
+    await Promise.all([loadStaff(), loadCitizens()]);
     const [{ data: crewRows }, { data: profileRows }, { data: memberRows }] = await Promise.all([
       supabase.from('crews').select('*').order('name'),
       supabase.from('profiles').select('id, full_name'),
@@ -447,7 +488,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .select('*, status_transitions!status_transitions_report_id_fkey(*)')
       .order('created_at', { ascending: false });
     setReports((reportRows ?? []).map(r => mapReport(r, names)));
-  }, [loadStaff]);
+  }, [loadStaff, loadCitizens]);
 
   /* Session bootstrap + role gate: active office staff (officer/admin) and field
      crew may use the console; citizens and suspended accounts are rejected. Crew
@@ -754,12 +795,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const perms = useMemo(() => permsFor(user?.role ?? 'Viewer'), [user?.role]);
 
   const value = useMemo<StoreValue>(() => ({
-    authReady, user, perms, settings, reports, crews, staff,
+    authReady, user, perms, settings, reports, crews, staff, citizens,
     signIn, signOut, updatePassword, updateProfile, saveSettings,
     transitionReport, checkDuplicates, listDuplicateReviews, resolveDuplicateReview, mergeDuplicateReview,
     createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
     inviteUser, setUserRole, setUserStatus,
-  }), [authReady, user, perms, settings, reports, crews, staff, signIn, signOut, updatePassword, updateProfile, saveSettings,
+  }), [authReady, user, perms, settings, reports, crews, staff, citizens, signIn, signOut, updatePassword, updateProfile, saveSettings,
        transitionReport, checkDuplicates, listDuplicateReviews, resolveDuplicateReview, mergeDuplicateReview,
        createCrew, setCrewAvailability, assignCrewMember, inviteCrewMember, removeCrewMember, setLead,
        inviteUser, setUserRole, setUserStatus]);

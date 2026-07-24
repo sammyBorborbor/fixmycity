@@ -15,6 +15,7 @@ import Assignments from './screens/Assignments.tsx';
 import DuplicateReviews from './screens/DuplicateReviews.tsx';
 import Crews from './screens/Crews.tsx';
 import Analytics from './screens/Analytics.tsx';
+import Citizens from './screens/Citizens.tsx';
 import Users from './screens/Users.tsx';
 import AuditLog from './screens/AuditLog.tsx';
 import Profile from './screens/Profile.tsx';
@@ -100,6 +101,7 @@ function OfficeApp() {
         <Route path="/duplicates" element={<RequireRole path="/duplicates"><DuplicateReviews /></RequireRole>} />
         <Route path="/crews" element={<RequireRole path="/crews"><Crews /></RequireRole>} />
         <Route path="/analytics" element={<RequireRole path="/analytics"><Analytics /></RequireRole>} />
+        <Route path="/citizens" element={<RequireRole path="/citizens"><Citizens /></RequireRole>} />
         <Route path="/users" element={<RequireRole path="/users"><Users /></RequireRole>} />
         <Route path="/audit" element={<RequireRole path="/audit"><AuditLog /></RequireRole>} />
         <Route path="/profile" element={<Profile />} />
