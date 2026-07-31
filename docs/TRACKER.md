@@ -13,7 +13,7 @@ Broken Public Facility, Poor Sanitation, Other) · 4 roles (Citizen, Officer, Fi
 Administrator) · Progressive Web App. _(Categories widened 2026-07-24 from the original
 locked three, by team sign-off, to match the AI model's enum.)_
 
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-31
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -313,7 +313,18 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Map now fits to all report pins.** `LeafletMap` sat at a fixed centre/zoom
+1. **Re-reporting your own open report is now blocked.** The follow-a-duplicate path only
+   fired when the CV match belonged to *another* citizen; a citizen re-submitting the same
+   photo of their own report fell through and filed a duplicate (confirmed at API level:
+   the CV service returned `duplicate_status = 'duplicate'` and we discarded it).
+   `submit-report` now returns `already_reported` + the candidate instead of creating a row,
+   and the citizen app shows a "You've already reported this" screen with **View my report**
+   / **submit anyway** (`force_create`). No `duplicate_offers` row is written — that table
+   only authorises `follow-report`, and there is no follow here. Scoped to OPEN statuses so
+   a recurrence after Resolved/Rejected is still a legitimate new report.
+   **Known limitation:** the CV service scopes its duplicate check to the submitted
+   category, so the same photo filed under two different categories still reads as `new`.
+2. **Map now fits to all report pins.** `LeafletMap` sat at a fixed centre/zoom
    (Okponglo, z14), so reports outside that frame (e.g. East Legon) were silently
    off-screen — a citizen with reports in two areas saw only one pin. Added a
    `FitToReports` helper (`useMap` + `fitBounds`, capped `maxZoom` 16; single pin

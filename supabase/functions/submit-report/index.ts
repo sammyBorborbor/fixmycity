@@ -121,6 +121,10 @@ Deno.serve(async (req) => {
   // looser 'possible_duplicate') triggers the citizen-facing follow offer.
   const STRONG_DUPLICATE = 'duplicate';
 
+  // Statuses where a report is still being worked: re-reporting the same issue adds
+  // nothing. 'resolved' and 'rejected' are deliberately absent (see below).
+  const OPEN_STATUSES = ['submitted', 'acknowledged', 'assigned', 'in_progress', 'reopened'];
+
   if (cvApiConfigured() && !forceCreate) {
     try {
       const { data: photoBlob, error: dlErr } = await admin.storage.from('report-photos').download(paths[0]);
@@ -165,6 +169,14 @@ Deno.serve(async (req) => {
             .select('id, reference, category, location_name, status, follower_count, reporter_id')
             .eq('external_report_id', cv.duplicateOfExternalId)
             .maybeSingle();
+          const candidateSummary = candidate && {
+            id: candidate.id,
+            reference: candidate.reference,
+            category: candidate.category,
+            location_name: candidate.location_name,
+            status: candidate.status,
+            follower_count: candidate.follower_count,
+          };
           if (candidate && candidate.reporter_id !== user.id) {
             // record that we offered this candidate to this user, so follow-report
             // can verify the follow is legitimate (guards against following an
@@ -172,20 +184,22 @@ Deno.serve(async (req) => {
             await admin
               .from('duplicate_offers')
               .upsert({ user_id: user.id, report_id: candidate.id }, { onConflict: 'user_id,report_id', ignoreDuplicates: true });
-            return json({
-              status: 'duplicate_detected',
-              candidate: {
-                id: candidate.id,
-                reference: candidate.reference,
-                category: candidate.category,
-                location_name: candidate.location_name,
-                status: candidate.status,
-                follower_count: candidate.follower_count,
-              },
-            });
+            return json({ status: 'duplicate_detected', candidate: candidateSummary });
           }
-          // candidate missing (older/CV-only row) or it's the caller's own report:
-          // fall through and create the report normally.
+          // The citizen is re-reporting their OWN still-open report (the same photo
+          // twice). Following is meaningless here — they already get every
+          // notification for it — so we block the duplicate and point them at the
+          // report instead. No duplicate_offers row: that table only exists to
+          // authorise follow-report, and there is no follow on this path.
+          //
+          // Scoped to OPEN statuses on purpose: if their earlier report was resolved
+          // or rejected and the problem has recurred, that is a legitimate new
+          // report and must not be blocked.
+          if (candidate && OPEN_STATUSES.includes(candidate.status)) {
+            return json({ status: 'already_reported', candidate: candidateSummary });
+          }
+          // candidate missing (older/CV-only row), or it's the caller's own report
+          // that is already closed: fall through and create the report normally.
         }
       }
     } catch (e) {

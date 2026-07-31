@@ -75,6 +75,18 @@ export interface DuplicateCandidate {
   followerCount: number;
 }
 
+/* What a submission attempt produced: a created report, or a blocked duplicate —
+   `duplicate` (someone else's report, offer to follow) or `alreadyReported` (the
+   citizen's own still-open report). The blocked cases carry `photoPaths` so the
+   citizen can override without re-uploading. */
+export interface SubmitOutcome {
+  report?: Report;
+  duplicate?: DuplicateCandidate;
+  alreadyReported?: DuplicateCandidate;
+  photoPaths?: string[];
+  error?: string;
+}
+
 export interface Crew {
   id: string;
   name: string;
@@ -118,9 +130,11 @@ export interface StoreValue {
   sendPasswordReset: (email: string) => Promise<{ error?: string }>;
   updatePassword: (password: string) => Promise<{ error?: string }>;
   // submitReport either creates the report, or — when the CV service flags it as a
-  // duplicate — returns a `duplicate` candidate plus the already-uploaded
-  // `photoPaths` (so the caller can follow it, or submitAnyway to override).
-  submitReport: (draft: ReportDraft) => Promise<{ report?: Report; duplicate?: DuplicateCandidate; photoPaths?: string[]; error?: string }>;
+  // duplicate — returns a candidate plus the already-uploaded `photoPaths`.
+  // `duplicate` is someone else's report (offer to follow it); `alreadyReported` is
+  // the citizen's own still-open report (nothing to follow, just view it). Either
+  // way submitAnyway overrides.
+  submitReport: (draft: ReportDraft) => Promise<SubmitOutcome>;
   submitAnyway: (draft: ReportDraft, photoPaths: string[]) => Promise<{ report?: Report; error?: string }>;
   followReport: (candidate: DuplicateCandidate, photoPaths: string[]) => Promise<{ error?: string }>;
   unfollowReport: (id: string) => Promise<{ error?: string }>;
@@ -440,7 +454,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return report;
   }, [refresh]);
 
-  const submitReport = useCallback(async (draft: ReportDraft): Promise<{ report?: Report; duplicate?: DuplicateCandidate; photoPaths?: string[]; error?: string }> => {
+  const submitReport = useCallback(async (draft: ReportDraft): Promise<SubmitOutcome> => {
     if (!uid || !user) return { error: 'You are signed out. Please sign in again.' };
     try {
       // compress + upload each photo (1-5); the report row is only created by the
@@ -469,20 +483,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error) return { error: await describeError(error) };
 
       // the CV service flagged this as a duplicate: no report was created — hand
-      // the candidate + uploaded photos back so the citizen can choose.
-      if (data?.status === 'duplicate_detected' && data.candidate) {
+      // the candidate + uploaded photos back so the citizen can choose. Which key
+      // it comes back under decides the screen: someone else's report can be
+      // followed, the citizen's own can only be viewed.
+      if ((data?.status === 'duplicate_detected' || data?.status === 'already_reported') && data.candidate) {
         const c = data.candidate;
-        return {
-          photoPaths: paths,
-          duplicate: {
-            uuid: c.id,
-            reference: c.reference,
-            category: DB_TO_CATEGORY[c.category as ReportRow['category']],
-            location: c.location_name,
-            status: DB_TO_STATUS[c.status as ReportRow['status']],
-            followerCount: c.follower_count ?? 0,
-          },
+        const candidate: DuplicateCandidate = {
+          uuid: c.id,
+          reference: c.reference,
+          category: DB_TO_CATEGORY[c.category as ReportRow['category']],
+          location: c.location_name,
+          status: DB_TO_STATUS[c.status as ReportRow['status']],
+          followerCount: c.follower_count ?? 0,
         };
+        return data.status === 'already_reported'
+          ? { photoPaths: paths, alreadyReported: candidate }
+          : { photoPaths: paths, duplicate: candidate };
       }
 
       return { report: acceptNewReport(data.report, uid, user.name) };

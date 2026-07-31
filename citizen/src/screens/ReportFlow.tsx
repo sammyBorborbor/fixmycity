@@ -32,6 +32,9 @@ export default function ReportFlow() {
   // set when the CV service flags this submission as a duplicate: the citizen then
   // chooses to follow the existing report or submit theirs anyway.
   const [dupCandidate, setDupCandidate] = useState<DuplicateCandidate | null>(null);
+  // set when the duplicate is the citizen's OWN still-open report: there is nothing
+  // to follow (they already get its notifications), so they view it or override.
+  const [selfCandidate, setSelfCandidate] = useState<DuplicateCandidate | null>(null);
   const [uploadedPaths, setUploadedPaths] = useState<string[]>([]);
 
   // AWMA jurisdiction gate: the pilot only serves Ayawaso West. The server is the
@@ -62,13 +65,15 @@ export default function ReportFlow() {
     if (!category || photos.length === 0 || busy || !inAwma) return;
     setBusy(true);
     setError(null);
-    const { report, duplicate, photoPaths, error: submitError } = await submitReport({
+    const { report, duplicate, alreadyReported, photoPaths, error: submitError } = await submitReport({
       category, location, lat: position.lat, lng: position.lng, description: desc, photos,
     });
     setBusy(false);
-    // the CV service thinks this issue is already reported — offer to follow it.
-    if (duplicate) {
-      setDupCandidate(duplicate);
+    // the CV service thinks this issue is already reported — offer to follow it, or,
+    // when it is the citizen's own open report, just point them back at it.
+    if (duplicate || alreadyReported) {
+      if (duplicate) setDupCandidate(duplicate);
+      else setSelfCandidate(alreadyReported ?? null);
       setUploadedPaths(photoPaths ?? []);
       return;
     }
@@ -85,6 +90,9 @@ export default function ReportFlow() {
   const draft = category
     ? { category, location, lat: position.lat, lng: position.lng, description: desc, photos }
     : null;
+
+  // a duplicate screen (either kind) replaces the form until the citizen resolves it
+  const blocked = dupCandidate ?? selfCandidate;
 
   async function follow() {
     if (!dupCandidate || busy) return;
@@ -107,19 +115,20 @@ export default function ReportFlow() {
       return;
     }
     setDupCandidate(null);
+    setSelfCandidate(null);
     setNewId(report.id);
     setStep(3);
   }
 
   function reset() {
     setStep(1); setCategory(null); setPhotos([]); setDesc(''); setNewId(null); setError(null);
-    setDupCandidate(null); setUploadedPaths([]);
+    setDupCandidate(null); setSelfCandidate(null); setUploadedPaths([]);
   }
 
   return (
     <div className="px-4 pt-5 pb-4 fade-in">
       {/* step header */}
-      {step < 3 && !dupCandidate && (
+      {step < 3 && !blocked && (
         <>
           <div className="flex items-center gap-2 mb-1">
             {step > 1 && <button onClick={() => setStep(step - 1)} className="text-navy -ml-1"><Icon name="ChevronLeft" size={22} /></button>}
@@ -150,7 +159,7 @@ export default function ReportFlow() {
       )}
 
       {/* STEP 2 — capture */}
-      {step === 2 && category && !dupCandidate && (
+      {step === 2 && category && !blocked && (
         <div className="fade-up flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <CategoryBadge category={category} size={36} />
@@ -289,6 +298,48 @@ export default function ReportFlow() {
             </Btn>
             <Btn variant="outline" size="lg" onClick={submitDifferent} className="w-full" disabled={busy}>
               No, mine is different — submit anyway
+            </Btn>
+          </div>
+        </div>
+      )}
+
+      {/* ALREADY REPORTED — the match is the citizen's own report, still open.
+          No follow button: they already get every update on it. */}
+      {selfCandidate && (
+        <div className="fade-up flex flex-col pt-6">
+          <span className="self-center w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mb-4">
+            <Icon name="CopyCheck" size={30} className="text-amber-600" />
+          </span>
+          <h1 className="text-xl font-bold text-navy text-center">You've already reported this</h1>
+          <p className="text-muted text-sm mt-1 text-center max-w-[19rem] self-center">
+            This looks like the same issue you reported earlier. It's still open, and you'll
+            be notified at every step — no need to report it again.
+          </p>
+
+          <div className="mt-5 bg-white rounded-xl ring-1 ring-black/5 shadow-sm p-4">
+            <div className="flex items-center gap-3">
+              <CategoryBadge category={selfCandidate.category} size={40} />
+              <div className="flex-1">
+                <p className="font-semibold text-ink">{selfCandidate.category}</p>
+                <p className="text-xs text-muted flex items-center gap-1">
+                  <Icon name="MapPin" size={12} className="text-ocean" />{selfCandidate.location}
+                </p>
+              </div>
+              <StatusPill status={selfCandidate.status} />
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <span className="text-xs font-mono text-navy tracking-wide">{selfCandidate.reference}</span>
+            </div>
+          </div>
+
+          {error && <p className="mt-4 text-center text-sm text-red-600 bg-red-50 ring-1 ring-red-100 rounded-xl px-3 py-2">{error}</p>}
+
+          <div className="flex flex-col gap-2.5 mt-5">
+            <Btn size="lg" onClick={() => navigate('/reports/' + selfCandidate.reference)} icon="FileText" className="w-full" disabled={busy}>
+              View my report
+            </Btn>
+            <Btn variant="outline" size="lg" onClick={submitDifferent} className="w-full" disabled={busy}>
+              {busy ? 'Submitting…' : 'This is a different issue — submit anyway'}
             </Btn>
           </div>
         </div>
