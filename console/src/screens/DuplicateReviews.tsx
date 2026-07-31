@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, relTime } from '../lib/store.tsx';
 import type { DuplicateReview, DuplicateReviewSide } from '../lib/store.tsx';
 import { signedPhotoUrl } from '../lib/supabase.ts';
@@ -146,6 +146,21 @@ interface CardProps {
 function ReviewCard({ review, canAct, onResolve, onMerge, onDone }: CardProps) {
   const [mode, setMode] = useState<null | 'resolve' | 'merge'>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
+  const menuAnchor = useRef<HTMLDivElement>(null);
+
+  // Open the resolve menu, flipping it above the button when a downward menu
+  // would overflow the viewport (e.g. the last card near the bottom).
+  const toggleMenu = () => {
+    setMenuOpen(o => {
+      const next = !o;
+      if (next && menuAnchor.current) {
+        const rect = menuAnchor.current.getBoundingClientRect();
+        setDropUp(window.innerHeight - rect.bottom < 240); // ~menu height + margin
+      }
+      return next;
+    });
+  };
   const [resolution, setResolution] = useState('duplicate');
   const [dupOf, setDupOf] = useState('');                                   // externalId as string; '' = none
   const [mergeInto, setMergeInto] = useState(String(review.report.externalId));
@@ -210,14 +225,14 @@ function ReviewCard({ review, canAct, onResolve, onMerge, onDone }: CardProps) {
 
       {open && canAct && mode === null && (
         <div className="mt-3 flex gap-2">
-          <div className="relative">
-            <Btn size="sm" variant="outline" icon="Check" onClick={() => setMenuOpen(o => !o)}>
+          <div className="relative" ref={menuAnchor}>
+            <Btn size="sm" variant="outline" icon="Check" onClick={toggleMenu}>
               Resolve <Icon name="ChevronDown" size={14} className={`transition ${menuOpen ? 'rotate-180' : ''}`} />
             </Btn>
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                <div className="absolute left-0 mt-2 w-56 bg-white rounded-xl ring-1 ring-black/5 shadow-xl z-50 overflow-hidden fade-in">
+                <div className={`absolute left-0 w-56 bg-white rounded-xl ring-1 ring-black/5 shadow-xl z-50 overflow-hidden fade-in ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
                   {RESOLUTIONS.map(r => (
                     <button key={r.value}
                       onClick={() => { setResolution(r.value); setMode('resolve'); setMenuOpen(false); }}

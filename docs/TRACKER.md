@@ -313,7 +313,11 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Issue categories expanded to match the AI/CV service (3 -> 9).** Added Flooding, Pothole,
+1. **Duplicate Reviews dropdown no longer truncates.** The per-card "Resolve" menu now
+   flips above the button when a downward menu would overflow the viewport (measured via
+   `getBoundingClientRect` on open), fixing the clipped menu on the last card
+   (`console/src/screens/DuplicateReviews.tsx`).
+2. **Issue categories expanded to match the AI/CV service (3 -> 9).** Added Flooding, Pothole,
    Pollution, Broken Public Facility, Poor Sanitation and Other alongside the original three,
    aligning 1:1 with the CV enum. DB: six new `report_category` enum values via
    `20260724200000_expand_report_category.sql` (applied live). Edge: `submit-report` allow-list
