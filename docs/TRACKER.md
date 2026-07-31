@@ -313,7 +313,13 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Duplicate Reviews dropdown no longer truncates.** The per-card "Resolve" menu now
+1. **Map now fits to all report pins.** `LeafletMap` sat at a fixed centre/zoom
+   (Okponglo, z14), so reports outside that frame (e.g. East Legon) were silently
+   off-screen — a citizen with reports in two areas saw only one pin. Added a
+   `FitToReports` helper (`useMap` + `fitBounds`, capped `maxZoom` 16; single pin
+   recentres; no pins keeps the AWMA default) and filtered markers to valid coords.
+   Applied to both `citizen/src/components/LeafletMap.tsx` and the console copy.
+2. **Duplicate Reviews dropdown no longer truncates.** The per-card "Resolve" menu now
    flips above the button when a downward menu would overflow the viewport (measured via
    `getBoundingClientRect` on open), fixing the clipped menu on the last card
    (`console/src/screens/DuplicateReviews.tsx`).

@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import Icon from './Icon.tsx';
 import { STATUS } from '../lib/store.tsx';
@@ -14,8 +15,30 @@ interface LeafletMapProps {
 }
 
 // Roughly central to all 8 seeded AWMA neighbourhoods, near Okponglo/UG campus.
+// Used only as the initial view before the map fits to the actual report pins.
 const AYAWASO_WEST_CENTER: [number, number] = [5.635, -0.185];
 const DEFAULT_ZOOM = 14;
+
+const hasCoords = (r: Report) => Number.isFinite(r.lat) && Number.isFinite(r.lng);
+
+/* Keep every report pin in view: fit the map to the bounds of all markers
+   whenever the set changes. Without this the map sits at a fixed center/zoom,
+   so reports outside that frame (e.g. East Legon when centred on Okponglo) are
+   silently off-screen. A single pin just recentres (capped zoom); no pins is a
+   no-op so the AWMA default view stands. */
+function FitToReports({ reports }: { reports: Report[] }) {
+  const map = useMap();
+  useEffect(() => {
+    const pts = reports.filter(hasCoords).map(r => [r.lat, r.lng] as [number, number]);
+    if (pts.length === 0) return;
+    if (pts.length === 1) {
+      map.setView(pts[0], Math.min(map.getZoom(), 16));
+      return;
+    }
+    map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
+  }, [reports, map]);
+  return null;
+}
 
 /* Status-colored pin matching the placeholder's visual language, built from a
    real DOM render of the shared <Icon> component (not Leaflet's default
@@ -54,7 +77,8 @@ export default function LeafletMap({ reports, onPin, activeId, height = 320, rou
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {reports.map(r => {
+        <FitToReports reports={reports} />
+        {reports.filter(hasCoords).map(r => {
           const cfg = STATUS[r.status] || STATUS.Submitted;
           const active = activeId === r.id;
           return (
