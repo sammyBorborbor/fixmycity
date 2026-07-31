@@ -322,8 +322,15 @@ Distilled from git history:
    / **submit anyway** (`force_create`). No `duplicate_offers` row is written — that table
    only authorises `follow-report`, and there is no follow here. Scoped to OPEN statuses so
    a recurrence after Resolved/Rejected is still a legitimate new report.
-   **Known limitation:** the CV service scopes its duplicate check to the submitted
-   category, so the same photo filed under two different categories still reads as `new`.
+   **Known limitations:** (a) the CV service scopes its duplicate check to the submitted
+   category, so the same photo filed under two different categories still reads as `new`;
+   (b) this **breaks generating a console Duplicate Review live** — that relied on one
+   citizen submitting the same photo twice, and neither path reproduces it now (the block
+   prevents the second row; the `force_create` override creates the row but skips the CV
+   call, so the service never pairs them). Demo the already-open reviews instead, or let
+   the override register with the CV service while still skipping the block.
+   Verified live against deployed v13: block fires, override creates, jurisdiction gate
+   intact at all 8 pilot neighbourhoods.
 2. **Map now fits to all report pins.** `LeafletMap` sat at a fixed centre/zoom
    (Okponglo, z14), so reports outside that frame (e.g. East Legon) were silently
    off-screen — a citizen with reports in two areas saw only one pin. Added a
