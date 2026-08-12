@@ -15,11 +15,11 @@ Municipal Assembly, Ghana
 
 | No. | Group Member | Student ID | Major Contribution |
 |---|---|---|---|
-| 1 | Nana Agyemang Duah | 22425071 | _(fill in — individual submission)_ |
+| 1 | Nana Agyemang Duah | 22425071 | AI model — built the external computer-vision service (photo classification, perceptual-hash duplicate detection) FixMyCity integrates with. _(expand with your own understanding/detail before individual submission)_ |
 | 2 | Nigel Dolling | 22424595 | _(fill in — individual submission)_ |
-| 3 | Samuel Owusu Ampadu | 22424245 | _(fill in — individual submission)_ |
-| 4 | Stanford Ofori | 22427427 | _(fill in — individual submission)_ |
-| 5 | Alexander Adade | 22424693 | _(fill in — individual submission)_ |
+| 3 | Samuel Owusu Ampadu | 22424245 | FixMyCity application — citizen app, operations console, and Supabase backend (schema, RLS, edge functions). _(expand with your own understanding/detail before individual submission)_ |
+| 4 | Stanford Ofori | 22427427 | FixMyCity application — citizen app, operations console, and Supabase backend (schema, RLS, edge functions). _(expand with your own understanding/detail before individual submission)_ |
+| 5 | Alexander Adade | 22424693 | AI model — built the external computer-vision service (photo classification, perceptual-hash duplicate detection) FixMyCity integrates with. _(expand with your own understanding/detail before individual submission)_ |
 | 6 | Hajara Yusif | 22425066 | _(fill in — individual submission)_ |
 
 Source: `docs/FixMyCity-demo.pptx` title slide (has student IDs). Cross-checked against
