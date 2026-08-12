@@ -69,8 +69,9 @@ already answers that. Console *writes* still go through edge functions
 writes: authorization and audit-logging can't live in the client.
 
 **Technology architecture (deployment view).** Citizen and Console are separate Vercel
-projects (Citizen is live; Console is not yet deployed — see the Deployment doc).
-Supabase hosts Postgres/Auth/Storage/Edge-Functions/Realtime as one managed project.
+projects, both live in production (`https://fixmycity-citizen.vercel.app` and
+`https://fixmycity-console.vercel.app`). Supabase hosts Postgres/Auth/Storage/
+Edge-Functions/Realtime as one managed project.
 The CV microservice and Resend are external, reached over HTTPS with an API key
 (`IMAGE_MODEL_URL`/`IMAGE_MODEL_API_KEY`, `RESEND_API_KEY`). No component is unique to
 a single cloud provider by design (Postgres, Deno edge functions, and static React
