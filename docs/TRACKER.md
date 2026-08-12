@@ -13,7 +13,7 @@ Broken Public Facility, Poor Sanitation, Other) · 4 roles (Citizen, Officer, Fi
 Administrator) · Progressive Web App. _(Categories widened 2026-07-24 from the original
 locked three, by team sign-off, to match the AI model's enum.)_
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-12
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -28,7 +28,7 @@ locked three, by team sign-off, to match the AI model's enum.)_
 | M3 — State machine + console wiring | ✅ |
 | M4 — Notifications (realtime + email) | ✅ (no web push) |
 | M5 — AI features (classify + duplicates) | 🟡 integrated with external CV API (submit-time); needs live-contract confirmation |
-| M6 — PWA + Leaflet maps + deploy | ✅ / 🟡 (offline shell-only) |
+| M6 — PWA + Leaflet maps + deploy | ✅ (offline shell-only; both apps live) |
 
 ---
 
@@ -248,8 +248,13 @@ citizen can type a landmark and jump the map there — no Google Places, no API 
 or report queueing (network required for all API/storage calls).
 
 - Console has **no PWA** (intentional — desktop tool).
-- `citizen/vercel.json` SPA rewrite present; console has none. **Citizen deployed** to
-  `https://fixmycity-citizen.vercel.app`; console not yet deployed.
+- `citizen/vercel.json` SPA rewrite present; console has none. **Both apps are deployed
+  and live**: citizen at `https://fixmycity-citizen.vercel.app`, console at
+  `https://fixmycity-console.vercel.app` (Vercel projects `fixmycity` and
+  `fixmycity-console`, both last deployed 2026-07-31, both READY/production). This line
+  previously said console was undeployed — it wasn't: the console deployment happened in
+  the same 2026-07-31 batch as citizen's but was never reflected here. Corrected
+  2026-08-12 after confirming live login + data load against the deployed console URL.
 
 ---
 
@@ -302,7 +307,8 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 - [ ] Decide on / implement FCM web push (optional — email is the fallback).
 - [ ] Offline report queueing (runtimeCaching / background sync) for the citizen PWA.
 - [~] Test suite: Vitest unit tests done (console pure logic); edge-function (Deno) + Playwright E2E left.
-- [ ] Deploy the console to Vercel (citizen is live); set up GitHub Actions CI.
+- [x] Deploy the console to Vercel — already done 2026-07-31, tracker corrected 2026-08-12
+  (see "Recent changes"). GitHub Actions CI is still outstanding.
 - [ ] Refresh the stale top-level README.
 - [ ] Restrict `Access-Control-Allow-Origin` on all edge functions to the app origins
   (defense-in-depth; see Cross-cutting / tech debt).
@@ -313,7 +319,21 @@ These UIs work but mutate session-local state only (labelled in `console/src/lib
 
 Distilled from git history:
 
-1. **Re-reporting your own open report is now blocked.** The follow-a-duplicate path only
+1. **Corrected a stale tracker claim: the console was already deployed.** While
+   working through the capstone documentation pass, checking the Vercel projects
+   directly (via the Vercel MCP, then confirmed with a live login) showed both
+   `fixmycity` (citizen) and `fixmycity-console` were deployed in the same batch on
+   2026-07-31 — this tracker's own M6/backlog lines just never got updated to say so
+   for console, even though they were for citizen. No redeploy was needed; the live
+   console at `https://fixmycity-console.vercel.app` is current with `master` (no
+   console-affecting commits landed after its 2026-07-31 20:01 UTC deployment) and was
+   verified end-to-end: signed in as `akua.osei@awma.gov.gh`, landed on a live Inbox
+   with all 34 real seeded reports, correct filter counts, and follower badges. Also
+   produced `docs/GROUP_INFO.md`, `docs/srs/SRS.md` (v2.0), `docs/design/` (diagrams +
+   18 real UI screenshots), and `docs/testing/TESTING_REPORT.md` for the CSCD 602
+   capstone submission package — see those files rather than duplicating their content
+   here.
+2. **Re-reporting your own open report is now blocked.** The follow-a-duplicate path only
    fired when the CV match belonged to *another* citizen; a citizen re-submitting the same
    photo of their own report fell through and filed a duplicate (confirmed at API level:
    the CV service returned `duplicate_status = 'duplicate'` and we discarded it).
