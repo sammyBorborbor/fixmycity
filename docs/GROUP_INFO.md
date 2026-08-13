@@ -16,11 +16,11 @@ Municipal Assembly, Ghana
 | No. | Group Member | Student ID | Major Contribution |
 |---|---|---|---|
 | 1 | Nana Agyemang Duah | 22425071 | AI model — built the external computer-vision service (photo classification, perceptual-hash duplicate detection) FixMyCity integrates with. _(expand with your own understanding/detail before individual submission)_ |
-| 2 | Nigel Dolling | 22424595 | _(fill in — individual submission)_ |
+| 2 | Nigel Dolling | 22424595 | Testing & QA — verified functionality and reported defects across the citizen app, operations console, and backend workflows (see `docs/testing/TESTING_REPORT.md`). _(expand with your own understanding/detail before individual submission)_ |
 | 3 | Samuel Owusu Ampadu | 22424245 | Built and own the FixMyCity application end-to-end: the citizen and console React/Vite front-ends, the Supabase schema and Row-Level Security policies, and all ten edge functions (`submit-report`, `transition-report`, `cancel-report`, `follow-report`/`unfollow-report`, `manage-users`, `manage-crews`, `check-duplicates`, `duplicate-reviews`, `classify-image`). Designed the server-enforced closed-loop status workflow, the AWMA jurisdiction geofence, and the follow-a-duplicate IDOR fix; integrated the external CV vendor behind a fail-soft anti-corruption adapter; deployed both apps to Vercel and the backend to Supabase. |
 | 4 | Stanford Ofori | 22427427 | FixMyCity application — citizen app, operations console, and Supabase backend (schema, RLS, edge functions). _(expand with your own understanding/detail before individual submission)_ |
 | 5 | Alexander Adade | 22424693 | AI model — built the external computer-vision service (photo classification, perceptual-hash duplicate detection) FixMyCity integrates with. _(expand with your own understanding/detail before individual submission)_ |
-| 6 | Hajara Yusif | 22425066 | _(fill in — individual submission)_ |
+| 6 | Hajara Yusif | 22425066 | Testing & QA — verified functionality and reported defects across the citizen app, operations console, and backend workflows (see `docs/testing/TESTING_REPORT.md`). _(expand with your own understanding/detail before individual submission)_ |
 
 Source: `docs/FixMyCity-demo.pptx` title slide (has student IDs). Cross-checked against
 `docs/FixMyCity_SRS.docx`, which lists the same six people with slightly different name
