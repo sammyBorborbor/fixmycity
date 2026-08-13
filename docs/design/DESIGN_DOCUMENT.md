@@ -1,11 +1,11 @@
-# FixMyCity — System Analysis & Design Document
+# FixMyCity: System Analysis & Design Document
 
-CSCD 602 Capstone — Group Zero Down Time. Companion to *SRS.pdf*. The group/member
+CSCD 602 Capstone, Group Zero Down Time. Companion to *SRS.pdf*. The group/member
 roster appears on the cover page of Project_Documentation.pdf.
 
-**Provenance note:** every diagram below is derived directly from the shipped code —
+**Provenance note:** every diagram below is derived directly from the shipped code:
 `supabase/migrations/*.sql` (18 migrations) and `supabase/functions/*` (10 edge
-functions) — not from prose descriptions, which can drift out of date as the system
+functions), not from prose descriptions, which can drift out of date as the system
 evolves. Where the team's own earlier internal project notes went stale (most
 notably: image classification and duplicate detection are handled by an external
 computer-vision microservice rather than an in-house Claude-vision call or
@@ -62,7 +62,7 @@ through an edge function (`submit-report`, `cancel-report`, `follow-report`, …
 every write needs server-side validation (AWMA jurisdiction gate, CV classification,
 duplicate blocking) that can't be trusted to the client. Console reads for
 low-stakes directory views (Citizens list, Crews list) go straight to Postgres under
-RLS, because there's no business logic to enforce beyond "is this caller staff" — RLS
+RLS, because there's no business logic to enforce beyond "is this caller staff". RLS
 already answers that. Console *writes* still go through edge functions
 (`manage-users`, `manage-crews`, `transition-report`) for the same reason as citizen
 writes: authorization and audit-logging can't live in the client.
@@ -134,7 +134,7 @@ flowchart LR
 ```
 
 Note: `Dispatcher` (a `console_role`) may only perform `Acknowledge` and `Assign`
-among the staff actions; `Viewer` may perform none — both are narrower slices of the
+among the staff actions; `Viewer` may perform none. Both are narrower slices of the
 "Reports Officer" actor above, not separate actors, since they share the same use
 cases with a reduced permission set enforced server-side in `transition-report`.
 
@@ -143,7 +143,7 @@ cases with a reduced permission set enforced server-side in `transition-report`.
 ## 3. Class Diagram (Conceptual Domain Model)
 
 This is a conceptual/domain model, not a 1:1 mirror of the physical schema (Section 6
-covers that) — it expresses the system's behaviour in OOP terms for readability, even
+covers that): it expresses the system's behaviour in OOP terms for readability, even
 though the real implementation is serverless functions over Postgres rather than a
 class hierarchy.
 
@@ -351,11 +351,11 @@ sequenceDiagram
 ```
 
 **Design note on the `duplicate_offers` gate.** The `report_followers` RLS `select`
-policy lets anyone in the table see the report they're following — so without a
+policy lets anyone in the table see the report they're following, so without a
 gate, `follow-report` would let any authenticated citizen attach themselves as a
 follower of *any* report ID they guess, an insecure direct object reference (IDOR).
-Requiring a `duplicate_offers` row — which only `submit-report` ever writes, and only
-for the specific citizen who was just shown that specific candidate — closes that
+Requiring a `duplicate_offers` row (which only `submit-report` ever writes, and only
+for the specific citizen who was just shown that specific candidate) closes that
 hole. This is exactly the "IDOR fix" described in the Notable Implementation Features
 section of Project_Documentation.pdf.
 
@@ -363,7 +363,7 @@ section of Project_Documentation.pdf.
 
 ## 5. Activity / Process Diagrams
 
-### 5.1 Report status lifecycle (state diagram — the system's architectural centre)
+### 5.1 Report status lifecycle (state diagram, the system's architectural centre)
 
 ```mermaid
 stateDiagram-v2
@@ -393,11 +393,11 @@ stateDiagram-v2
 ```
 
 Every arrow above writes exactly one `status_transitions` row (timestamp + actor +
-optional note) inside the same server-side transaction that updates `reports.status`
-— if the audit insert fails, `transition-report` reverts the status update, so the
+optional note) inside the same server-side transaction that updates `reports.status`:
+if the audit insert fails, `transition-report` reverts the status update, so the
 current status and the audit trail can never disagree. `Dispatcher` console-role staff
 may only fire `acknowledge`/`assign`; `Viewer` staff may fire none of the staff
-transitions — both are enforced inside `transition-report`, never on the client.
+transitions. Both are enforced inside `transition-report`, never on the client.
 
 ### 5.2 Submit-report process (citizen-facing activity view)
 
@@ -523,7 +523,7 @@ erDiagram
 ```
 
 Every entity above also carries `created_at`; append-only tables
-(`status_transitions`) have no `updated_at` by design — a
+(`status_transitions`) have no `updated_at` by design: a
 `before update` trigger (`block_transition_mutation`) rejects any UPDATE against
 `status_transitions` outright, so the audit log is physically, not just
 conventionally, immutable.
@@ -540,7 +540,7 @@ citizen workflow (Section 4.3 above) and are as central to the real system as
 - **Extensions:** `postgis` and `vector` are both enabled (`extensions` schema).
   PostGIS is used live for the AWMA point-in-polygon jurisdiction gate's underlying
   `geography(point,4326)` column and the `reports_location_gix` GiST index; pgvector's
-  `vector(512)` embedding column and its HNSW index exist but are **dormant** — the
+  `vector(512)` embedding column and its HNSW index exist but are **dormant**: the
   duplicate-detection responsibility moved to the external CV service's perceptual
   hashing, and the SQL function `find_duplicate_candidates()` (PostGIS `ST_DWithin` +
   pgvector cosine distance) that would have used them is no longer called by any edge
@@ -549,7 +549,7 @@ citizen workflow (Section 4.3 above) and are as central to the real system as
   history), and re-enabling similarity search later requires no migration, only a
   code change.
 - **Schemas:** `public` (client-facing, RLS'd) and `private` (SQL helper
-  functions/triggers not exposed via the Data API — e.g. `current_user_role()`,
+  functions/triggers not exposed via the Data API, e.g. `current_user_role()`,
   `current_user_crew()`, used inside RLS policies to avoid the "RLS policy reads a
   table with an RLS policy on it" recursion problem).
 - **Row-Level Security is on for every table.** Writes are edge-function-only: the
@@ -557,12 +557,12 @@ citizen workflow (Section 4.3 above) and are as central to the real system as
   three narrow, column-scoped `update` grants: `profiles.full_name/phone/settings`,
   `notifications.read`) in migration `20260707132647`. `anon` has no table grants at
   all. This means **the state machine cannot be bypassed by a client writing directly
-  to Postgres** — the only door into a status change is `transition-report`, which is
+  to Postgres**: the only door into a status change is `transition-report`, which is
   exactly the "state machine lives server-side" design principle established at the
   project's outset.
   `duplicate_offers` is the strictest table in the schema: RLS is on with **zero**
   policies, so it's invisible to every role except `service_role` (i.e., edge
-  functions) — by design, since it exists purely as an internal capability token, not
+  functions), by design, since it exists purely as an internal capability token, not
   user-facing data.
 - **Generated columns:** `reports.lat`/`reports.lng` are `GENERATED ALWAYS AS
   (ST_Y(location::geometry))`/`ST_X(...)` **STORED**, so client code (and the two
@@ -570,7 +570,7 @@ citizen workflow (Section 4.3 above) and are as central to the real system as
   library, while `location` remains the single source of geographic truth.
 - **Reference generation:** a `before insert` trigger
   (`private.set_report_reference()`) assigns `FMC-YYYY-NNNN` from a dedicated sequence
-  (`report_reference_seq`, starting at 500) — the format promised to citizens in the
+  (`report_reference_seq`, starting at 500), the format promised to citizens in the
   SRS's confirmation-screen requirement (FR-015).
 - **Realtime:** only `public.notifications` and `public.reports` are in the
   `supabase_realtime` publication; RLS applies to the realtime stream too, so a
@@ -637,9 +637,9 @@ Each diagram above exists to make a specific SRS section concrete:
 | §6 Use Cases (UC-01–UC-05) | Sequence Diagrams (§4) map 1:1 to UC-01–UC-04; UC-05 (Administrator) is covered by the manage-users/manage-crews write path in the Component Diagram (§8) |
 | §7 Data Requirements | ER Diagram (§6), Database Design (§7) |
 | §8 System Architecture Overview | System Architecture (§1), Component Diagram (§8) |
-| Report state model (§7.3 of the SRS) | State Diagram (§5.1) — refined here with the real `console_role` carve-outs and crew self-service transitions the SRS's June-2026 draft didn't yet capture |
+| Report state model (§7.3 of the SRS) | State Diagram (§5.1), refined here with the real `console_role` carve-outs and crew self-service transitions the SRS's June-2026 draft didn't yet capture |
 
 See *Design_Documentation.pdf* for the User-Interface design artefacts (real
 captured screens from both running apps, per the team's "port, don't reinvent"
-principle for the prototypes — the UI was already fully built, so screenshots are
+principle for the prototypes: the UI was already fully built, so screenshots are
 stronger evidence than redrawn wireframes).

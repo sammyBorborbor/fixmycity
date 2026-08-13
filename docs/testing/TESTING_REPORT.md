@@ -1,6 +1,6 @@
-# FixMyCity — Testing & Quality Assurance Report
+# FixMyCity: Testing & Quality Assurance Report
 
-CSCD 602 Capstone — Group Zero Down Time. Companion to *SRS.pdf* (the
+CSCD 602 Capstone, Group Zero Down Time. Companion to *SRS.pdf* (the
 requirements being tested against) and *Design_Documentation.pdf* (the
 architecture under test).
 
@@ -8,7 +8,7 @@ architecture under test).
 against the hosted production Supabase project (`hvesugctansssxwtzjqn`) and the
 project's Vitest suites. Every result below is either a pasted real command output, a
 real HTTP response captured the day of writing, or a dated entry lifted from the
-project's git/tracker history — nothing in this document is a projection or a
+project's git/tracker history. Nothing in this document is a projection or a
 description of intended behaviour that wasn't actually exercised.
 
 ## 1. Testing Strategy
@@ -16,9 +16,9 @@ description of intended behaviour that wasn't actually exercised.
 Given the capstone's time and staffing constraints, testing effort was prioritised as
 follows: **automated unit tests** for pure business logic that's cheap to test and
 regresses silently (RBAC matrix, report-action availability, the AWMA geofence);
-**live integration/system tests** for the parts that are hardest to fake convincingly
-— the server-side state machine, Row-Level Security, and the two AI-adjacent security
-gates (IDOR on follow, jurisdiction on submit) — run directly against the real hosted
+**live integration/system tests** for the parts that are hardest to fake convincingly:
+the server-side state machine, Row-Level Security, and the two AI-adjacent security
+gates (IDOR on follow, jurisdiction on submit), run directly against the real hosted
 backend rather than a mocked one, because RLS and edge-function behaviour are
 precisely the things a mock would paper over; and **honest gap-flagging** for
 performance and formal moderated usability testing, which are described in §7–8 but
@@ -28,21 +28,21 @@ claiming completeness.
 
 | Testing type | Status |
 |---|---|
-| Unit testing | ✅ Done — 50 tests, both apps (§2) |
-| Integration testing | ✅ Done — live edge-function chain + database verification (§3) |
-| System testing | ✅ Done — full closed-loop flow against production (§3) |
-| Functional testing | ✅ Done — FR-level checks woven through §2–4 |
-| Security testing | ✅ Done — live RLS/IDOR/geofence/bypass probes (§4) |
-| User acceptance testing | 🟡 Partial — real captured UI evidence (§5), no moderated study |
-| Usability testing | ⬜ Not run — NFR-030/031/033 targets defined, not measured (§7) |
-| Performance testing | ⬜ Not run — NFR-001–005 targets defined, not measured (§7) |
+| Unit testing | ✅ Done: 50 tests, both apps (§2) |
+| Integration testing | ✅ Done: live edge-function chain + database verification (§3) |
+| System testing | ✅ Done: full closed-loop flow against production (§3) |
+| Functional testing | ✅ Done: FR-level checks woven through §2–4 |
+| Security testing | ✅ Done: live RLS/IDOR/geofence/bypass probes (§4) |
+| User acceptance testing | 🟡 Partial: real captured UI evidence (§5), no moderated study |
+| Usability testing | ⬜ Not run: NFR-030/031/033 targets defined, not measured (§7) |
+| Performance testing | ⬜ Not run: NFR-001–005 targets defined, not measured (§7) |
 
 ## 2. Unit Testing
 
 Both apps ship a Vitest suite. Run fresh for this report (not summarised from an
 older run):
 
-### 2.1 Citizen app — 13/13 passing
+### 2.1 Citizen app: 13/13 passing
 
 ```
 $ yarn test
@@ -67,10 +67,10 @@ $ yarn test
 ```
 
 Traceability: FR-012 (AWMA jurisdiction gate). This is the client-side copy of the
-same `pointInAwma` logic enforced server-side in `submit-report` — §4.3 below
+same `pointInAwma` logic enforced server-side in `submit-report`. §4.3 below
 demonstrates the server copy live.
 
-### 2.2 Console app — 37/37 passing
+### 2.2 Console app: 37/37 passing
 
 ```
 $ yarn test
@@ -127,11 +127,11 @@ which exercises the same logic these unit tests assert about the client copy of,
 a dedicated Deno test harness for the edge functions themselves remains future work
 (tracked in *Maintenance_and_Evolution.pdf*).
 
-## 3. Integration & System Testing — Live Closed-Loop Flow
+## 3. Integration & System Testing: Live Closed-Loop Flow
 
 Rather than mock the backend, a full report lifecycle was run against the live
 production database via direct HTTP calls to the real Supabase Auth, REST, and Edge
-Function endpoints — the same endpoints the citizen and console apps call. A
+Function endpoints, the same endpoints the citizen and console apps call. A
 disposable test report (reference `FMC-2026-0554`) was created, driven through the
 entire state machine, verified, and then deleted (§3.4) so it does not pollute the
 demo dataset used for presentations.
@@ -140,14 +140,14 @@ demo dataset used for presentations.
 
 1. Signed in as seeded citizen `ama.asante@gmail.com`.
 2. Uploaded a test photo to her private storage folder.
-3. `POST submit-report` — category `other`, location inside East Legon (AWMA)  →
+3. `POST submit-report`: category `other`, location inside East Legon (AWMA)  →
    **201, status `submitted`**, reference `FMC-2026-0554` generated.
 4. Signed in as staff `akua.osei@awma.gov.gh` (Administrator).
 5. `POST transition-report {action: acknowledge}` → **200, status `acknowledged`**.
 6. Looked up an available crew (`Crew Beta`, drainage, `available=true`).
 7. `POST transition-report {action: assign, crew_id: <Crew Beta>}` → **200, status
    `assigned`**.
-8. `POST transition-report {action: start}` (staff-mediated — no Field Crew
+8. `POST transition-report {action: start}` (staff-mediated: no Field Crew
    credential was available for this test run, so the officer performed the
    crew-side transition, which `transition-report` explicitly permits) → **200,
    status `in_progress`**.
@@ -170,7 +170,7 @@ order by created_at;
 | assigned | in_progress | admin | *(null)* | 2026-08-12 11:17:42.290 |
 | in_progress | resolved | admin | "E2E test - resolved by automated probe" | 2026-08-12 11:17:43.610 |
 
-Five rows, strictly increasing timestamps, correct `from`/`to` pairs at every step —
+Five rows, strictly increasing timestamps, correct `from`/`to` pairs at every step:
 **FR-052 (every transition timestamped, actor-tagged, and logged) verified live**,
 not just asserted by a unit test.
 
@@ -189,29 +189,29 @@ where report_id = '2fc4bb23-82c5-4bdf-a447-641295ff9539' order by created_at;
 | resolved | "Your report has been marked resolved." | 11:17:43.755 |
 
 Exactly one notification per transition (the initial `submitted` transition has no
-notification by design — there is no one to notify yet). **This is a direct,
+notification by design, because there is no one to notify yet). **This is a direct,
 live measurement of the "Closed-loop integrity" success criterion in
-*SRS.pdf* §9.5 (100% of transitions accompanied by a notification) — 4/4 on
+*SRS.pdf* §9.5 (100% of transitions accompanied by a notification): 4/4 on
 this run.**
 
 ### 3.4 Clean-up
 
 The test report, its audit trail, and its notifications were deleted via
 `DELETE FROM reports WHERE id = '2fc4bb23-...'`, which cascades to
-`status_transitions` and `notifications` by foreign-key `ON DELETE CASCADE` — this
+`status_transitions` and `notifications` by foreign-key `ON DELETE CASCADE`. This
 cascade succeeding is itself a positive confirmation that the `status_transitions`
 append-only trigger's 2026-07-09 relaxation (UPDATE-only, not UPDATE-or-DELETE,
 specifically to support `cancel-report`'s cascade) works as designed, live. The
 uploaded test photo in Storage could **not** be deleted with the citizen's own bearer
-token (`403 Access denied` — Storage DELETE requires elevated privileges the client
+token (`403 Access denied`: Storage DELETE requires elevated privileges the client
 role doesn't have) and direct SQL deletion of `storage.objects` is itself blocked by
 a `storage.protect_delete()` trigger; it was left in place as a known, pre-existing
 limitation rather than worked around unsafely. See §6, defect **D-10**.
 
-## 4. Security Testing — Live Probes Against Production
+## 4. Security Testing: Live Probes Against Production
 
 All of the following were run today against the hosted project using its public
-anon key (the same key shipped in both apps' `.env` — not a secret) and, where noted,
+anon key (the same key shipped in both apps' `.env`, not a secret) and, where noted,
 a signed-in citizen or staff session token.
 
 | # | Probe | Expected | Actual result |
@@ -230,7 +230,7 @@ a signed-in citizen or staff session token.
 Every probe returned exactly the access-control outcome the design claims (§8.4 of
 *Design_Documentation.pdf*, NFR-013/016 of the SRS). Probe 9 in particular is a
 direct, dated, live re-verification of the IDOR fix described in the Notable
-Implementation Features section of Project_Documentation.pdf, feature 6 — confirming
+Implementation Features section of Project_Documentation.pdf, feature 6, confirming
 it is still effective as of this report's date, not just at the time it was
 originally built (2026-07-24).
 
@@ -240,39 +240,39 @@ vulnerability scanning, and the CORS wildcard gap already flagged in the project
 internal changelog (every edge function currently sends
 `Access-Control-Allow-Origin: *`; not independently exploitable because auth is a
 bearer token browsers won't auto-attach cross-origin, but flagged as a
-defense-in-depth gap — see §6, D-11).
+defense-in-depth gap; see §6, D-11).
 
 ## 5. User Acceptance / Usability Evidence
 
 Formal moderated usability testing against NFR-030 (≥90% of first-time users
-complete a report in ≤90 seconds) was not conducted this iteration — flagged
+complete a report in ≤90 seconds) was not conducted this iteration, flagged
 honestly rather than fabricated (§7). What *is* available as UAT-adjacent evidence:
 *Design_Documentation.pdf* captures 18 real screens from both apps, driven live
 against the production dataset via Playwright, demonstrating that every golden-path
-screen in the SRS's use cases (UC-01 through UC-05) renders correctly with real data
-— the report-detail timeline, the console inbox with live filter counts, the
+screen in the SRS's use cases (UC-01 through UC-05) renders correctly with real data:
+the report-detail timeline, the console inbox with live filter counts, the
 Duplicate Reviews queue with real CV-service match percentages, and so on. This is
 functional/visual confirmation, not a substitute for a moderated usability study.
 
 ## 6. Defects Found and Resolved
 
-Mined from the project's dated internal change history and git log — a real log of bugs
+Mined from the project's dated internal change history and git log, a real log of bugs
 found during development, not a retrospective invention. Each entry names the
 symptom, the fix, and (where available) how it was verified.
 
 | ID | Date | Symptom | Fix | Verification |
 |---|---|---|---|---|
-| D-1 | 2026-07-31 | A citizen re-submitting a photo of their **own already-open report** fell through the duplicate check and filed a second report — the strong-duplicate branch only fired for a match against *another* citizen's report. | `submit-report` now checks for a self-match first and returns `already_reported` instead of creating a row; citizen app shows a "You've already reported this" screen. | Verified live against deployed v13: block fires, `force_create` override still works, jurisdiction gate unaffected at all 8 pilot neighbourhoods. |
+| D-1 | 2026-07-31 | A citizen re-submitting a photo of their **own already-open report** fell through the duplicate check and filed a second report. The strong-duplicate branch only fired for a match against *another* citizen's report. | `submit-report` now checks for a self-match first and returns `already_reported` instead of creating a row; citizen app shows a "You've already reported this" screen. | Verified live against deployed v13: block fires, `force_create` override still works, jurisdiction gate unaffected at all 8 pilot neighbourhoods. |
 | D-2 | 2026-07-31 | The Leaflet map used a fixed centre/zoom (Okponglo, z14); a citizen with reports outside that frame (e.g. East Legon) saw pins silently missing off-screen. | Added a `FitToReports` helper (`fitBounds` over all visible pins, capped zoom, single-pin recentre, AWMA-default fallback when empty) in both apps. | Manual verification in both apps' Map screens. |
 | D-3 | 2026-07-31 | The per-card "Resolve" dropdown on the last card in the console Duplicate Reviews list rendered off-screen / clipped at the viewport edge. | Dropdown now measures `getBoundingClientRect` on open and flips upward when a downward menu would overflow. | Manual verification; confirmed in the `console-09-duplicate-reviews.png` screenshot in this submission. |
-| D-4 | 2026-07 (M2) | Signup email-confirmation links routed to the hosted Supabase project's default `localhost:3000` Site URL instead of the deployed app — confirmation was effectively broken in production. | Added an in-app `/auth/callback` screen, explicit `emailRedirectTo` + implicit-flow client config, a SPA rewrite in `citizen/vercel.json`, and corrected the hosted project's Site URL / redirect allowlist. | Commit `935ce24`; confirmed end-to-end signup flow works against the deployed URL. |
+| D-4 | 2026-07 (M2) | Signup email-confirmation links routed to the hosted Supabase project's default `localhost:3000` Site URL instead of the deployed app. Confirmation was effectively broken in production. | Added an in-app `/auth/callback` screen, explicit `emailRedirectTo` + implicit-flow client config, a SPA rewrite in `citizen/vercel.json`, and corrected the hosted project's Site URL / redirect allowlist. | Commit `935ce24`; confirmed end-to-end signup flow works against the deployed URL. |
 | D-5 | 2026-07 (M3) | The `Waves` Lucide icon (used for the Blocked Drain category) was renamed upstream, silently rendering a blank icon box in both apps. | Switched to the renamed `WavesHorizontal` icon. | Manual visual check, both apps. |
 | D-6 | 2026-07 (M6) | The Leaflet map z-index sat below the slide-in console detail panel in some browsers, causing the background map to paint over and clip the panel's text. | Map wrapper given its own stacking context (`isolate`) so it can no longer bleed through a higher z-index sibling. | Manual visual check. |
 | D-7 | 2026-07 (M6) | The inline step-2 location map conflated scrolling the page with panning the map, making it hard to use one-handed on mobile. | Replaced with a locked preview + full-screen `MapLocationModal` (fixed centre pin, citizen pans the map underneath, explicit Confirm). | Manual UX check; matches the "Uber-style" pattern used across the redesigned flow. |
 | D-8 | 2026-07-23 | Seed data left `Crew Gamma` with a stale `member_count` of 3 while it actually had zero assigned members, after manual roster edits during seeding. | `manage-crews` gained a `resyncCount()` helper that recounts `profiles.crew_id` on every membership change instead of trusting a denormalised counter. | Verified against the corrected seed data. |
-| D-9 | Ongoing, pre-existing | The Analytics screen's "Avg. resolution time" and "Resolved this week" figures were hardcoded placeholder values (3.4 days / +2), not computed from real data — a correctness gap rather than a crash, but one that would have shipped misleading numbers to an Administrator. | Replaced with a real computation over the `submitted → resolved` timestamp span and a rolling 7-day window (`console/src/lib/metrics.ts`, unit-tested — §2.2). | Rendered values checked against an independent direct-SQL computation at the time of the fix; the same logic is now covered by `metrics.test.ts`. |
-| D-10 | 2026-08-12 (found during this testing pass) | An uploaded report photo cannot be deleted from Storage using the uploading citizen's own bearer token (`403 Access denied`), and direct SQL deletion of `storage.objects` is blocked by Supabase's own `protect_delete()` trigger — so any code path that needs to clean up an orphaned photo (a cancelled report, an abandoned duplicate-follow choice, or this testing pass's own test photo) cannot fully clean up client-side. | **Not yet fixed.** `follow-report`'s best-effort photo cleanup (see the Notable Implementation Features section of Project_Documentation.pdf, feature 5) already works around this using the edge function's service-role privileges rather than the client's; the same approach would need to be applied anywhere else client-side cleanup is attempted. Currently harmless (orphaned private-bucket objects, not publicly readable, small storage cost) but worth a scheduled janitor job — added to *Maintenance_and_Evolution.pdf*. | Reproduced live, 2026-08-12 (§3.4), consistent with a limitation the team had already independently discovered in earlier E2E testing (2026-07-31 session notes). |
-| D-11 | Ongoing, not yet fixed | Every edge function sends `Access-Control-Allow-Origin: *`. Not independently exploitable (bearer-token auth isn't browser-auto-attached cross-origin), but a defense-in-depth gap flagged by an earlier automated security review of the follow-a-duplicate work. | **Not yet fixed** — tracked as backlog in the project's internal changelog and *Maintenance_and_Evolution.pdf*. | N/A — documented, not yet remediated. |
+| D-9 | Ongoing, pre-existing | The Analytics screen's "Avg. resolution time" and "Resolved this week" figures were hardcoded placeholder values (3.4 days / +2), not computed from real data, a correctness gap rather than a crash, but one that would have shipped misleading numbers to an Administrator. | Replaced with a real computation over the `submitted → resolved` timestamp span and a rolling 7-day window (`console/src/lib/metrics.ts`, unit-tested; see §2.2). | Rendered values checked against an independent direct-SQL computation at the time of the fix; the same logic is now covered by `metrics.test.ts`. |
+| D-10 | 2026-08-12 (found during this testing pass) | An uploaded report photo cannot be deleted from Storage using the uploading citizen's own bearer token (`403 Access denied`), and direct SQL deletion of `storage.objects` is blocked by Supabase's own `protect_delete()` trigger, so any code path that needs to clean up an orphaned photo (a cancelled report, an abandoned duplicate-follow choice, or this testing pass's own test photo) cannot fully clean up client-side. | **Not yet fixed.** `follow-report`'s best-effort photo cleanup (see the Notable Implementation Features section of Project_Documentation.pdf, feature 5) already works around this using the edge function's service-role privileges rather than the client's; the same approach would need to be applied anywhere else client-side cleanup is attempted. Currently harmless (orphaned private-bucket objects, not publicly readable, small storage cost) but worth a scheduled janitor job: added to *Maintenance_and_Evolution.pdf*. | Reproduced live, 2026-08-12 (§3.4), consistent with a limitation the team had already independently discovered in earlier E2E testing (2026-07-31 session notes). |
+| D-11 | Ongoing, not yet fixed | Every edge function sends `Access-Control-Allow-Origin: *`. Not independently exploitable (bearer-token auth isn't browser-auto-attached cross-origin), but a defense-in-depth gap flagged by an earlier automated security review of the follow-a-duplicate work. | **Not yet fixed**: tracked as backlog in the project's internal changelog and *Maintenance_and_Evolution.pdf*. | N/A: documented, not yet remediated. |
 
 ## 7. Performance Testing
 
@@ -307,12 +307,12 @@ session and are recommended as the first usability-testing pass in
 | Crew self-service start/resolve (FR-056) | | ✅ §2.2 | Live probe as an actual crew account |
 | Performance targets (NFR-001–005) | | | ⬜ §7 |
 | Usability targets (NFR-030–033) | | | ⬜ §8 |
-| SLA configuration (FR-045/082) | N/A — not implemented, see SRS §9.4 | | |
+| SLA configuration (FR-045/082) | N/A: not implemented, see SRS §9.4 | | |
 
 ## 10. Conclusion
 
-Fifty automated unit tests pass cleanly across both applications, and — more
-distinctively for a capstone testing report — the report's central architectural
+Fifty automated unit tests pass cleanly across both applications, and, more
+distinctively for a capstone testing report, the report's central architectural
 claim (a server-enforced, fully-audited, fully-notified closed-loop workflow) was
 verified **live against the production system**, not simulated: a real report was
 pushed through every status in the state machine, its audit trail and notification

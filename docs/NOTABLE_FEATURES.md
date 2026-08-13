@@ -1,4 +1,4 @@
-# FixMyCity — Notable Features
+# FixMyCity: Notable Features
 
 A reference of the technically interesting, defensible features of the FixMyCity
 implementation, written for inclusion in the project report. Each entry states *what* the
@@ -7,7 +7,7 @@ non-functional requirement references for traceability. Where a feature was vali
 live end-to-end test against the production backend, this is noted as **Verified**.
 
 > Honesty note on AI: the external computer-vision (CV) service is **live** and does three
-> real jobs — image registration, duplicate detection (perceptual hashing), and
+> real jobs: image registration, duplicate detection (perceptual hashing), and
 > "is-this-a-genuine-civic-issue" validation. **Automatic category pre-fill is not currently
 > wired** (the service returns a confidence score and a duplicate verdict, but not a category
 > that maps to our three classes), and the in-database `pgvector` similarity path is present
@@ -25,13 +25,13 @@ transition is timestamped, written to an append-only audit log, and fires a citi
 notification.
 
 **Why interesting.** This is the project's central thesis: earlier Ghanaian civic-reporting
-attempts failed because reports vanished — no resolution workflow and no feedback. FixMyCity's
+attempts failed because reports vanished: no resolution workflow and no feedback. FixMyCity's
 differentiator is that the loop *closes* and the citizen is told at every step.
 
 **How.** The state machine lives entirely server-side in the `transition-report` edge
 function, which (a) validates that the requested transition is legal for the current status
 *and* the caller's role, (b) writes a `status_transitions` row, and (c) updates the report and
-fires notifications atomically. Front-ends never write statuses directly — they are thin
+fires notifications atomically. Front-ends never write statuses directly: they are thin
 clients. *Traceability: FR-022 (7 statuses), FR-042 (acknowledge), FR-050 (assign), FR-052
 (every transition logged with timestamp + actor + note), FR-024 (reopen within 7 days).*
 
@@ -40,7 +40,7 @@ clients. *Traceability: FR-022 (7 statuses), FR-042 (acknowledge), FR-050 (assig
 ## 2. Append-only audit log
 
 **What.** Every status change is recorded in a `status_transitions` table that permits inserts
-only — no updates, no deletes — enforced by a database trigger.
+only (no updates, no deletes), enforced by a database trigger.
 
 **Why interesting.** It gives the system a tamper-evident history: who did what, when, and why,
 for every report. This is a governance/accountability property that regulators and an MMDA
@@ -58,7 +58,7 @@ decides on; the system never auto-rejects or auto-merges. The strong-duplicate p
 citizen a choice rather than silently discarding their report.
 
 **Why interesting.** It is a deliberate, defensible stance on responsible AI in a civic
-context — the model accelerates triage without removing human judgement or a citizen's agency.
+context: the model accelerates triage without removing human judgement or a citizen's agency.
 
 **How.** The `check-duplicates` / duplicate-review queue surfaces "possible duplicate of
 FMC-…" candidates to officers, who choose to reject-as-duplicate or keep. The citizen-facing
@@ -71,13 +71,13 @@ professor-mandated AI features; design principle 4.*
 
 **What.** Image classification and duplicate detection are delegated to an external CV service.
 The integration is wrapped in a single adapter module that (a) translates between the two
-category vocabularies, (b) enforces an 8-second timeout, and (c) **fails soft** — if the CV
+category vocabularies, (b) enforces an 8-second timeout, and (c) **fails soft**: if the CV
 service is slow, down, or errors, the report is still created (with null AI metadata). An
 outage never halts civic reporting.
 
 **Why interesting.** This is textbook defensive integration: the "anti-corruption layer"
 pattern isolates our domain model from a third-party contract, and the fail-soft policy makes
-a non-critical dependency genuinely non-blocking. Only two conditions ever block a submission —
+a non-critical dependency genuinely non-blocking. Only two conditions ever block a submission:
 an explicit "not a civic issue" verdict, and a strong duplicate (which offers a follow
 instead).
 
@@ -87,7 +87,7 @@ posts the photo as multipart form data to the CV service; `submit-report` consum
 A streetlight safeguard ignores "not environmental" verdicts for streetlight photos because the
 model has no streetlight class. **Verified:** live submissions populated `external_report_id`
 and `perceptual_hash` on every report; a genuinely off-topic photo was correctly blocked with a
-`photo_not_environmental` message. *Traceability: AI feature 1; NFR — CV outage tolerance.*
+`photo_not_environmental` message. *Traceability: AI feature 1; NFR (CV outage tolerance).*
 
 ---
 
@@ -99,7 +99,7 @@ create a second report. Instead it offers the citizen the existing report to **f
 followed report then carries multiple interested residents, and every one of them receives the
 same status notifications through resolution.
 
-**Why interesting.** It reframes duplicates — usually treated as noise to be merged away — as a
+**Why interesting.** It reframes duplicates (usually treated as noise to be merged away) as a
 *demand signal*: how many residents care about this exact problem. It also improves data
 quality (one canonical report instead of many near-identical ones) without a citizen feeling
 their submission was thrown away.
@@ -119,25 +119,25 @@ received the officer's "acknowledged" notification. *Traceability: AI feature 2;
 ## 6. IDOR-hardened follow authorisation (a real security fix)
 
 **What.** A citizen can only follow a report that was *explicitly offered to them* as a
-duplicate — they cannot follow an arbitrary report id.
+duplicate: they cannot follow an arbitrary report id.
 
 **Why interesting.** Without this gate, any authenticated user could follow any report id and,
 via the follower read policy, read that report's full contents (photos, description, precise
-location, timeline) — a classic Insecure Direct Object Reference. This is a concrete, named
+location, timeline), a classic Insecure Direct Object Reference. This is a concrete, named
 security control the report can point to, not a hand-wave.
 
 **How.** The `duplicate_offers` table has Row-Level Security enabled with **no policies at all**
-(so no client can read or write it — only the service role can). `follow-report` checks for a
+(so no client can read or write it: only the service role can). `follow-report` checks for a
 matching offer row before inserting the follow; absent an offer it returns `403`. The follow
 read policy deliberately exposes the report body to followers but **never the reporter's
-identity**. *Traceability: NFR — least privilege / Act 843 data minimisation.*
+identity**. *Traceability: NFR (least privilege / Act 843 data minimisation).*
 
 ---
 
 ## 7. Server-authoritative jurisdiction gate (PostGIS point-in-polygon)
 
 **What.** The pilot serves exactly one municipality (Ayawaso West). Any report whose
-coordinates fall outside the AWMA boundary is rejected at the server — the front-end also warns,
+coordinates fall outside the AWMA boundary is rejected at the server: the front-end also warns,
 but the server is the source of truth.
 
 **Why interesting.** It is precise geofencing done properly: a real municipal boundary polygon
@@ -168,7 +168,7 @@ role model of the domain.
 **How.** RLS policies on `profiles`, `reports`, `status_transitions`, `notifications`,
 `report_followers`, and `duplicate_offers`; the only client write grants are narrow
 (`profiles.full_name/phone`, `notifications.read`). All privileged operations go through edge
-functions running with the service role. *Traceability: NFR — access control; Act 843.*
+functions running with the service role. *Traceability: NFR (access control); Act 843.*
 
 ---
 
@@ -176,12 +176,12 @@ functions running with the service role. *Traceability: NFR — access control; 
 
 **What.** A dedicated console screen where officers work the CV service's duplicate-review
 queue: each item pairs a report with its candidate and a "% match" confidence, and staff
-**Resolve** (with a dropdown of resolution outcomes — Duplicate / Possible duplicate /
+**Resolve** (with a dropdown of resolution outcomes: Duplicate / Possible duplicate /
 Supporting evidence / Reject-as-not-a-duplicate) or **Merge**.
 
 **Why interesting.** It operationalises the "AI suggests, human confirms" principle with a real
 workflow surface, and it keeps a clean architectural boundary: resolving/merging updates the
-model's advisory queue only — it never changes a report's status, which stays exclusively in
+model's advisory queue only. It never changes a report's status, which stays exclusively in
 the state machine.
 
 **How.** The console calls a `duplicate-reviews` edge function that is a pure proxy to the CV
@@ -197,11 +197,11 @@ the most recently added console feature.*
 capped at 5 MB, English UI, and no dependency on paid map APIs.
 
 **Why interesting.** The non-functional constraints are treated as first-class design inputs,
-not afterthoughts — a frequent failure point for civic tech in the Global South.
+not afterthoughts, a frequent failure point for civic tech in the Global South.
 
 **How.** Client-side image compression to WebP prior to storage upload; OpenStreetMap tiles via
 Leaflet (no Google Maps key); a Progressive Web App shell so there is no app-store dependency.
-*Traceability: NFR — TTI ≤ 5 s on 3G; ≤ 5 MB uploads; PWA delivery.*
+*Traceability: NFR (TTI ≤ 5 s on 3G; ≤ 5 MB uploads; PWA delivery).*
 
 ---
 
@@ -211,12 +211,12 @@ Leaflet (no Google Maps key); a Progressive Web App shell so there is no app-sto
 bcrypt, and identity data withheld even where content is shared (followers never see who
 reported).
 
-**Why interesting.** Compliance is designed in — data minimisation and purpose limitation show
+**Why interesting.** Compliance is designed in: data minimisation and purpose limitation show
 up directly in the schema and the RLS policies, which is exactly what an Act 843 assessment
 looks for.
 
 **How.** Supabase Auth (bcrypt password hashing), Postgres encryption at rest, TLS everywhere,
-and RLS policies that expose only the fields a role needs. *Traceability: NFR — Act 843.*
+and RLS policies that expose only the fields a role needs. *Traceability: NFR (Act 843).*
 
 ---
 
