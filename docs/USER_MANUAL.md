@@ -2,7 +2,7 @@
 
 CSCD 602 Capstone — Group Zero Down Time. Covers all four roles: Citizen, Reports
 Officer, Field Crew, Administrator. Screens referenced below are real, live captures
-from `docs/design/screenshots/` (see `docs/design/UI_SCREENSHOTS.md` for the full
+from `docs/design/screenshots/` (see *Design_Documentation.pdf* for the full
 set) — nothing in this manual describes a mockup.
 
 ## Getting started
@@ -209,7 +209,7 @@ computed live from the audit trail, not hardcoded.
 A placeholder for now (read-only, "coming in next iteration") — every status
 transition is already fully logged in the database and visible per-report in each
 detail panel's timeline; a consolidated cross-report audit view is tracked as future
-work in `docs/MAINTENANCE_AND_EVOLUTION.md`.
+work in *Maintenance_and_Evolution.pdf*.
 
 ---
 

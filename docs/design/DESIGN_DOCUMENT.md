@@ -1,17 +1,16 @@
 # FixMyCity — System Analysis & Design Document
 
-CSCD 602 Capstone — Group Zero Down Time. Companion to `docs/srs/SRS.md` (the
-requirements) and `CLAUDE.md` (the living project brief). See `docs/GROUP_INFO.md`
-for the group/member roster.
+CSCD 602 Capstone — Group Zero Down Time. Companion to *SRS.pdf*. The group/member
+roster appears on the cover page of Project_Documentation.pdf.
 
 **Provenance note:** every diagram below is derived directly from the shipped code —
 `supabase/migrations/*.sql` (18 migrations) and `supabase/functions/*` (10 edge
 functions) — not from prose descriptions, which can drift out of date as the system
-evolves. Where CLAUDE.md's own architecture prose is now stale (most notably: image
-classification and duplicate detection are handled by an external computer-vision
-microservice rather than an in-house Claude-vision call or PostGIS/pgvector pipeline,
-and six edge functions exist that CLAUDE.md doesn't mention), these diagrams follow
-the real system.
+evolves. Where the team's own earlier internal project notes went stale (most
+notably: image classification and duplicate detection are handled by an external
+computer-vision microservice rather than an in-house Claude-vision call or
+PostGIS/pgvector pipeline, and six edge functions exist that those internal notes
+never mentioned), these diagrams follow the real system.
 
 ---
 
@@ -357,7 +356,8 @@ gate, `follow-report` would let any authenticated citizen attach themselves as a
 follower of *any* report ID they guess, an insecure direct object reference (IDOR).
 Requiring a `duplicate_offers` row — which only `submit-report` ever writes, and only
 for the specific citizen who was just shown that specific candidate — closes that
-hole. This is exactly the "IDOR fix" referenced in `docs/NOTABLE_FEATURES.md`.
+hole. This is exactly the "IDOR fix" described in the Notable Implementation Features
+section of Project_Documentation.pdf.
 
 ---
 
@@ -528,8 +528,8 @@ Every entity above also carries `created_at`; append-only tables
 `status_transitions` outright, so the audit log is physically, not just
 conventionally, immutable.
 
-`report_followers` and `duplicate_offers` are not in CLAUDE.md's data-model section at
-all; they're the tables behind the "follow instead of re-reporting a duplicate"
+`report_followers` and `duplicate_offers` were not part of the original data-model
+design at all; they're the tables behind the "follow instead of re-reporting a duplicate"
 citizen workflow (Section 4.3 above) and are as central to the real system as
 `status_transitions` is to the closed-loop workflow.
 
@@ -558,7 +558,8 @@ citizen workflow (Section 4.3 above) and are as central to the real system as
   `notifications.read`) in migration `20260707132647`. `anon` has no table grants at
   all. This means **the state machine cannot be bypassed by a client writing directly
   to Postgres** — the only door into a status change is `transition-report`, which is
-  exactly the "state machine lives server-side" design principle in `CLAUDE.md`.
+  exactly the "state machine lives server-side" design principle established at the
+  project's outset.
   `duplicate_offers` is the strictest table in the schema: RLS is on with **zero**
   policies, so it's invisible to every role except `service_role` (i.e., edge
   functions) — by design, since it exists purely as an internal capability token, not
@@ -638,7 +639,7 @@ Each diagram above exists to make a specific SRS section concrete:
 | §8 System Architecture Overview | System Architecture (§1), Component Diagram (§8) |
 | Report state model (§7.3 of the SRS) | State Diagram (§5.1) — refined here with the real `console_role` carve-outs and crew self-service transitions the SRS's June-2026 draft didn't yet capture |
 
-See `docs/design/UI_SCREENSHOTS.md` for the User-Interface design artefacts (real
-captured screens from both running apps, per the "port, don't reinvent" principle in
-`CLAUDE.md` — the UI was already fully built, so screenshots are stronger evidence
-than redrawn wireframes).
+See *Design_Documentation.pdf* for the User-Interface design artefacts (real
+captured screens from both running apps, per the team's "port, don't reinvent"
+principle for the prototypes — the UI was already fully built, so screenshots are
+stronger evidence than redrawn wireframes).

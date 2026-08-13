@@ -16,8 +16,9 @@ Hajara Yusif (22425066) — Group **Zero Down Time**
 **Department of Computer Science, University of Ghana, Legon**
 *August 2026*
 
-See `docs/GROUP_INFO.md` for the canonical roster and `docs/design/DESIGN_DOCUMENT.md`
-for the accompanying diagrams (use-case, ER, class, sequence, state, component).
+See the cover page of Project_Documentation.pdf for the canonical roster and
+*Design_Documentation.pdf* for the accompanying diagrams (use-case, ER, class,
+sequence, state, component).
 
 ---
 
@@ -30,7 +31,7 @@ for the accompanying diagrams (use-case, ER, class, sequence, state, component).
 | 0.1 | May 2026 | Project team | Initial outline based on capstone brief. |
 | 0.5 | June 2026 | Project team | Stakeholder analysis, MoSCoW prioritisation, scope agreed with lecturer. |
 | 1.0 | June 2026 | Project team | First complete SRS issued for capstone submission. Scope: single MMDA (AWMA), **three** issue categories, four user classes. |
-| 2.0 | August 2026 | Project team (documentation refresh drafted with Claude Code, reviewed by the team — see Appendix D.7) | Reconciled the SRS with the delivered system, which has moved substantially since v1.0: issue categories expanded from 3 to 9 (team sign-off, 2026-07-24); image classification and duplicate detection are now performed by an external computer-vision (CV) microservice rather than an in-house component, and duplicate detection **blocks** submission and offers a **follow** option rather than merely flagging (§4.2, §9.4 — this is the biggest single behavioural change from v1.0); added functional requirements for report cancellation, following a duplicate report, crew management, the console-role permission taxonomy (Dispatcher/Viewer carve-outs), and the officer-facing duplicate-review queue; corrected the report state-transition table to match what the server actually enforces (reject legal from any open state; crew self-service on their own assigned reports; reopened reports re-enter via acknowledge/assign); added the AWMA jurisdiction geofence as an explicit interface requirement; updated the data model and architecture sections to name Supabase/PostGIS/pgvector as the implemented choices, cross-referenced to `docs/design/DESIGN_DOCUMENT.md`. Every change above was verified against the shipped migrations and edge functions, not against the original prompt or intent. |
+| 2.0 | August 2026 | Project team (documentation refresh drafted with Claude Code, reviewed by the team — see Appendix D.7) | Reconciled the SRS with the delivered system, which has moved substantially since v1.0: issue categories expanded from 3 to 9 (team sign-off, 2026-07-24); image classification and duplicate detection are now performed by an external computer-vision (CV) microservice rather than an in-house component, and duplicate detection **blocks** submission and offers a **follow** option rather than merely flagging (§4.2, §9.4 — this is the biggest single behavioural change from v1.0); added functional requirements for report cancellation, following a duplicate report, crew management, the console-role permission taxonomy (Dispatcher/Viewer carve-outs), and the officer-facing duplicate-review queue; corrected the report state-transition table to match what the server actually enforces (reject legal from any open state; crew self-service on their own assigned reports; reopened reports re-enter via acknowledge/assign); added the AWMA jurisdiction geofence as an explicit interface requirement; updated the data model and architecture sections to name Supabase/PostGIS/pgvector as the implemented choices, cross-referenced to *Design_Documentation.pdf*. Every change above was verified against the shipped migrations and edge functions, not against the original prompt or intent. |
 
 ## Approvals
 
@@ -72,7 +73,7 @@ bound the scope of the project deliberately so that design, implementation and
 evaluation proceed within a realistic capstone schedule. Third, to provide a basis
 for stakeholder review, particularly by the course lecturer and any participating
 MMDA. Fourth, to serve as the source of traceable requirements against which the
-delivered system, the test plan (`docs/testing/TESTING_REPORT.md`), and this
+delivered system, the test plan (*Testing_Report.pdf*), and this
 document's own accuracy are validated.
 
 Version 2.0 additionally serves a fifth purpose specific to a capstone context:
@@ -103,7 +104,7 @@ lecturer and grading committee should focus on Sections 1 to 5 and the appendice
 evaluate the rigour and completeness of the requirements engineering work. Developers
 should read Sections 3 to 7 in detail, as these define interfaces, features,
 non-functional constraints, use cases and data — and should cross-reference
-`docs/design/DESIGN_DOCUMENT.md` for the diagrams that make these concrete.
+*Design_Documentation.pdf* for the diagrams that make these concrete.
 Stakeholders at participating MMDAs should focus on Sections 1, 2 and 9 for an
 executive understanding of scope, value, and prioritisation. Reviewers concerned with
 the AI-assisted methodology should read Appendix D, which documents the prompts used
@@ -249,7 +250,7 @@ photographs in object storage, and dispatches notifications. The two front-end
 applications consume the same backend API; there is one source of truth for users,
 reports, assignments, and status history. As implemented, the Backend Service is
 built on Supabase (managed Postgres, Auth, Storage, and Deno-based Edge Functions);
-`docs/design/DESIGN_DOCUMENT.md` §1 diagrams this concretely.
+*Design_Documentation.pdf* §1 diagrams this concretely.
 
 Unlike v1.0's description, the system now has a real fourth party in its product
 perspective: an **external computer-vision (CV) microservice**, developed and hosted
@@ -345,7 +346,7 @@ Ghanaian data-protection considerations.
   Auth).
 - The system is deployable from a public Git repository with continuous integration
   (GitHub Actions CI is tracked as outstanding work — see
-  `docs/MAINTENANCE_AND_EVOLUTION.md`). No proprietary or closed-source components are
+  *Maintenance_and_Evolution.pdf*). No proprietary or closed-source components are
   used beyond the managed platform services named in §8.
 - The system supports at least the English language. Other languages are deferred to
   future enhancements.
@@ -355,12 +356,12 @@ Ghanaian data-protection considerations.
 - Report writes never bypass the server-side state machine (`transition-report`) or
   the server-side jurisdiction gate (`pointInAwma`) — this is enforced both by
   application code and by database grants (clients hold no direct write privilege on
-  `reports` or `status_transitions`; see `docs/design/DESIGN_DOCUMENT.md` §7).
+  `reports` or `status_transitions`; see *Design_Documentation.pdf* §7).
 
 ## 2.6 User Documentation
 
 The following user documentation is produced alongside the system (delivered as
-`docs/USER_MANUAL.md`, organised by role rather than as five separate print-ready
+*User_Manual.pdf*, organised by role rather than as five separate print-ready
 artefacts, given the capstone's documentation-consolidation allowance):
 
 - A Citizen quick-start covering registration through to tracking and reopening a
@@ -426,8 +427,9 @@ stakeholder landscape is summarised below.
 ## 3.1 User Interfaces
 
 The system presents two distinct user-interface surfaces sharing a common visual
-language (navy/blue/gold palette, shared status-pill colour mapping — see CLAUDE.md's
-design-system section and `docs/design/UI_SCREENSHOTS.md` for real captured screens).
+language (navy/blue/gold palette, shared status-pill colour mapping — see the
+project's design-system conventions and *Design_Documentation.pdf* for real captured
+screens).
 
 ### 3.1.1 Citizen Application
 
@@ -447,7 +449,7 @@ design-system section and `docs/design/UI_SCREENSHOTS.md` for real captured scre
 - Desktop-first layout, designed for a minimum viewport of 1280 by 720 pixels.
 - Left navigation rail with the items Inbox, Map, Assignments, Crews, Citizens,
   Analytics, Users, Duplicate Reviews, and Audit Log (Audit Log is a read-only
-  placeholder pending its next iteration — see `docs/MAINTENANCE_AND_EVOLUTION.md`).
+  placeholder pending its next iteration — see *Maintenance_and_Evolution.pdf*).
 - Table-centric data presentation with sticky headers, multi-column filters,
   pagination, and a consistent right-hand detail panel for the selected report,
   supporting in-context status updates without leaving the queue.
@@ -476,7 +478,7 @@ desktop input devices.
 - All client–server communication uses HTTPS over TLS 1.2 or higher. Plain HTTP is
   rejected.
 - The API is JSON-over-REST-style with conventional HTTP verbs, implemented as
-  Supabase Edge Functions (see `docs/design/DESIGN_DOCUMENT.md` §8 for the full
+  Supabase Edge Functions (see *Design_Documentation.pdf* §8 for the full
   10-function surface).
 - File uploads (photographs) use multipart/form-data, capped at five megabytes per
   file.
@@ -522,7 +524,7 @@ v1.0 and v2.0** — the original spec described an in-house, non-blocking duplic
 | FR-015 | The system shall confirm successful submission by presenting a unique report reference (format `FMC-YYYY-NNNN`) and a visible status of 'Submitted'. | Must | Closed-loop trust. *(unchanged)* |
 | FR-016 | The system shall permit the Citizen to attach up to three photographs to a single report. | Should | Richer evidence. *(unchanged — current photo_urls field supports multiple; confirm cap in Testing Report)* |
 | FR-017 | The system should allow report submission while offline, queuing the report locally and submitting it when connectivity is restored. | Could | Low-connectivity tolerance; not yet implemented — offline is shell-only (app-shell caching, no data queue). | 
-| FR-018 | The system shall submit the report photo to an external CV service for classification and duplicate screening at submission time. If the service reports the photo is **not a genuine civic issue**, submission shall be blocked with a clear message (except for the streetlight and other categories, which the CV vendor's model does not classify and which are therefore exempt from this check). If the service reports a **strong duplicate of another citizen's currently-open report**, the system shall **not** create a second report; instead it shall record a follow-offer and present the existing report to the Citizen with the option to follow it (FR-019) or submit anyway (which skips the CV check on retry). If the service reports a strong duplicate of the **same citizen's own** currently-open report, the system shall present an "already reported" message instead of creating a duplicate. If the CV service is unreachable or times out (8 seconds), the report shall still be created without an AI verdict (fail-soft). | Must | Triage efficiency and data quality; this is one of the two professor-mandated AI features (§ AI features in `docs/design/DESIGN_DOCUMENT.md` §1). *(fundamentally revised from v1.0's "flag but do not block" behaviour, and from an in-house PostGIS/pgvector design to an external CV vendor — see NOTABLE_FEATURES.md for the verified behaviour)* |
+| FR-018 | The system shall submit the report photo to an external CV service for classification and duplicate screening at submission time. If the service reports the photo is **not a genuine civic issue**, submission shall be blocked with a clear message (except for the streetlight and other categories, which the CV vendor's model does not classify and which are therefore exempt from this check). If the service reports a **strong duplicate of another citizen's currently-open report**, the system shall **not** create a second report; instead it shall record a follow-offer and present the existing report to the Citizen with the option to follow it (FR-019) or submit anyway (which skips the CV check on retry). If the service reports a strong duplicate of the **same citizen's own** currently-open report, the system shall present an "already reported" message instead of creating a duplicate. If the CV service is unreachable or times out (8 seconds), the report shall still be created without an AI verdict (fail-soft). | Must | Triage efficiency and data quality; this is one of the two professor-mandated AI features (§ AI features in *Design_Documentation.pdf* §1). *(fundamentally revised from v1.0's "flag but do not block" behaviour, and from an in-house PostGIS/pgvector design to an external CV vendor — see the Notable Implementation Features section of Project_Documentation.pdf for the verified behaviour)* |
 | FR-019 | The system shall allow a Citizen who was offered an existing report as a likely duplicate (FR-018) to follow it: the Citizen is added as a follower and receives every subsequent status notification for that report, exactly as the original reporter does, without the original reporter's identity being disclosed to them. | Must | Turns duplicate submissions into a demand signal instead of discarded noise, per the "follow-a-duplicate" feature. | *(new in v2.0 — this ID slot was unused in v1.0)* |
 
 ## 4.3 Report Tracking, Cancellation, and Reopening
@@ -552,10 +554,10 @@ v1.0 and v2.0** — the original spec described an in-house, non-blocking duplic
 |---|---|---|---|
 | FR-040 | The system shall present incoming reports to the Reports Officer in a sortable, filterable, paginated inbox showing reference, category, location, submission time, and current status. | Must | Triage productivity. *(revised: pagination added)* |
 | FR-041 | The Reports Officer shall be able to view the full detail of any report, including the photograph, location on a map, citizen description, follower count, and history. | Must | Decision support. *(revised: adds follower count)* |
-| FR-042 | The Reports Officer shall be able to acknowledge a report, transitioning it from Submitted or **Reopened** to Acknowledged. | Must | Closed-loop first step. *(revised: also legal from Reopened — see the state diagram in `docs/design/DESIGN_DOCUMENT.md` §5.1)* |
+| FR-042 | The Reports Officer shall be able to acknowledge a report, transitioning it from Submitted or **Reopened** to Acknowledged. | Must | Closed-loop first step. *(revised: also legal from Reopened — see the state diagram in *Design_Documentation.pdf* §5.1)* |
 | FR-043 | The Reports Officer shall be able to reject a report, from any status except Resolved or Rejected itself, with a documented reason (out of jurisdiction, duplicate, insufficient information, or not valid) and, when rejecting as a duplicate, a reference to the report it duplicates. Rejected reports remain in the audit log. | Must | Triage realism. *(revised: reject is legal from any open status, not only as a terminal step from Submitted, and supports recording the duplicate target)* |
 | FR-044 | The Reports Officer shall be able to filter the inbox by category and status. | Must | Search efficiency. |
-| FR-045 | The system should flag overdue reports (those exceeding an SLA for their category) in the inbox with a visible indicator. | Should | Escalation surfacing; **not implemented** — no SLA concept exists in the current schema (categories are a fixed enum, not an administrator-configurable table with SLA hours). Carried forward as future work; see §9.4 and `docs/MAINTENANCE_AND_EVOLUTION.md`. |
+| FR-045 | The system should flag overdue reports (those exceeding an SLA for their category) in the inbox with a visible indicator. | Should | Escalation surfacing; **not implemented** — no SLA concept exists in the current schema (categories are a fixed enum, not an administrator-configurable table with SLA hours). Carried forward as future work; see §9.4 and *Maintenance_and_Evolution.pdf*. |
 | FR-046 | The system could support bulk operations on a selected set of reports. | Could | Power-user efficiency; not implemented. |
 
 ## 4.6 Assignment and Workflow
@@ -563,7 +565,7 @@ v1.0 and v2.0** — the original spec described an in-house, non-blocking duplic
 | ID | Requirement | Priority | Source / Rationale |
 |---|---|---|---|
 | FR-050 | The Reports Officer shall be able to assign a Submitted, Acknowledged, or **Reopened** report to a specific, currently-available Field Crew, transitioning it to Assigned. | Must | Workflow. *(revised: also legal from Submitted and Reopened directly, and requires `crews.available = true`)* |
-| FR-051 | The system shall enforce, server-side, that each status transition is legal only for its defined starting status/statuses and the caller's role, exactly as specified in the state diagram in `docs/design/DESIGN_DOCUMENT.md` §5.1. No transition is ever accepted from a client-asserted status alone. | Must | Workflow integrity — the state machine lives entirely in the `transition-report` server function; clients cannot write `reports.status` directly (enforced by database grants). *(revised: precision added; server-only enforcement is now explicit and verified, not just described)* |
+| FR-051 | The system shall enforce, server-side, that each status transition is legal only for its defined starting status/statuses and the caller's role, exactly as specified in the state diagram in *Design_Documentation.pdf* §5.1. No transition is ever accepted from a client-asserted status alone. | Must | Workflow integrity — the state machine lives entirely in the `transition-report` server function; clients cannot write `reports.status` directly (enforced by database grants). *(revised: precision added; server-only enforcement is now explicit and verified, not just described)* |
 | FR-052 | The system shall record every state transition in an append-only audit log with timestamp, actor identity, actor role, and (where applicable) the reason, note, or duplicate-target reference supplied. The audit log permits inserts only; updates and deletes are rejected at the database level. | Must | Audit trail. *(revised: the append-only guarantee is now a database trigger, not just a convention)* |
 | FR-053 | The system shall notify the assigned Field Crew, the reporter, and every follower of the report on assignment. | Must | Closed loop. *(revised: extended to followers)* |
 | FR-054 | The system should allow reassignment of a report from one crew to another by the Reports Officer or Administrator. | Should | Operational reality; confirm current support in Testing Report. |
@@ -598,7 +600,7 @@ v1.0 and v2.0** — the original spec described an in-house, non-blocking duplic
 | FR-080 | The Administrator shall be able to create, update, deactivate and reactivate user accounts for Reports Officers, Field Crews and other Administrators. | Must | User management. *(unchanged)* |
 | FR-081 | The Administrator shall be able to assign and revoke `console_role` values (Administrator, Supervisor, Officer, Dispatcher, Viewer, Field Crew) for any non-Citizen user, which in turn derives that user's underlying access role (Administrator→admin, Field Crew→crew, all others→officer). | Must | Access control. *(revised: the console-role taxonomy and its mapping to access role is now explicit and includes Dispatcher/Viewer, which carry restricted workflow permissions — see §4.6)* |
 | FR-082 | The Administrator should be able to configure the supported categories and their SLA targets. | Should | Operational flexibility; **not implemented** — categories are a fixed database enum requiring a schema migration to change, and no SLA concept exists yet. Honestly flagged as a gap relative to v1.0's intent; see §9.4. |
-| FR-083 | The Administrator shall be able to view a chronological audit log of all state transitions. | Must | Accountability. *(unchanged; a general configuration/user-action audit log beyond status transitions remains a future-work item — see `docs/MAINTENANCE_AND_EVOLUTION.md`)* |
+| FR-083 | The Administrator shall be able to view a chronological audit log of all state transitions. | Must | Accountability. *(unchanged; a general configuration/user-action audit log beyond status transitions remains a future-work item — see *Maintenance_and_Evolution.pdf*)* |
 | FR-084 | The system shall not allow the Administrator role to delete audit log entries. | Must | Tamper resistance — enforced by a database trigger, not merely a UI restriction. *(unchanged in intent, strengthened in enforcement)* |
 | FR-085 | The Administrator should be able to export data in CSV format. | Should | Reporting and backup; confirm current support in Testing Report. |
 | FR-086 | Administrator, Supervisor, and Dispatcher console roles shall be able to create a crew, add or move a member between crews, remove a member from a crew, set a crew's lead, and toggle a crew's availability. | Must | Crew management is a real, shipped console feature underpinning FR-050's "available crew" constraint. | *(new in v2.0)* |
@@ -621,7 +623,7 @@ v1.0 and v2.0** — the original spec described an in-house, non-blocking duplic
 
 Non-functional requirements are carried forward from v1.0 largely unchanged — they
 describe target behaviour and are still the acceptance bar the delivered system
-should be measured against in `docs/testing/TESTING_REPORT.md`, whether or not every
+should be measured against in *Testing_Report.pdf*, whether or not every
 target has yet been formally measured. Two additions reflect real, new dependencies.
 
 ## 5.1 Performance
@@ -633,7 +635,7 @@ target has yet been formally measured. Two additions reflect real, new dependenc
 | NFR-003 | The API shall respond promptly to common operations. | P95 latency ≤ 600 ms for read operations and ≤ 1500 ms for write operations under 100 concurrent users. |
 | NFR-004 | Photograph upload shall complete within a tolerable window for the citizen. | Median upload time ≤ 8 seconds for a 2 MB photograph on a 1 Mbps connection. |
 | NFR-005 | The system shall support concurrent users sized for the AWMA pilot. | 200 concurrent users sustained for one hour with all NFR-001 to NFR-004 targets maintained. |
-| NFR-006 | An outage of the external CV service shall not prevent report submission. | Report creation succeeds (without an AI verdict) when the CV service does not respond within an 8-second timeout. | *(new in v2.0, formalising the fail-soft behaviour verified in `docs/NOTABLE_FEATURES.md` §4)* |
+| NFR-006 | An outage of the external CV service shall not prevent report submission. | Report creation succeeds (without an AI verdict) when the CV service does not respond within an 8-second timeout. | *(new in v2.0, formalising the fail-soft behaviour verified in the Notable Implementation Features section of Project_Documentation.pdf, feature 4)* |
 
 ## 5.2 Security
 
@@ -645,7 +647,7 @@ target has yet been formally measured. Two additions reflect real, new dependenc
 | NFR-013 | Authorisation shall be role-based and enforced server-side on every protected endpoint and, additionally, at the database layer. | No endpoint relies solely on client-side role checks; Row-Level Security policies exist on every table; write grants to the `authenticated` role are limited to a small, explicit column allowlist. |
 | NFR-014 | The system shall log security-relevant events to a tamper-resistant audit log. | Status transitions recorded with actor and timestamp in an insert-only table (database trigger enforced). |
 | NFR-015 | The system shall comply with the Ghana Data Protection Act, 2012 (Act 843), in collecting, processing, and storing personal data. | A documented privacy policy, lawful basis for each data type, and a data-subject access process exist. |
-| NFR-016 | Common web vulnerabilities shall be mitigated, including Insecure Direct Object Reference (IDOR) risks introduced by newer features such as report-following. | OWASP Top Ten checks pass; the `duplicate_offers` table (which gates who may follow which report) carries Row-Level Security with zero client-facing policies, closing a specific IDOR that the follow feature would otherwise introduce — see `docs/NOTABLE_FEATURES.md` §6. |
+| NFR-016 | Common web vulnerabilities shall be mitigated, including Insecure Direct Object Reference (IDOR) risks introduced by newer features such as report-following. | OWASP Top Ten checks pass; the `duplicate_offers` table (which gates who may follow which report) carries Row-Level Security with zero client-facing policies, closing a specific IDOR that the follow feature would otherwise introduce — see the Notable Implementation Features section of Project_Documentation.pdf, feature 6. |
 | NFR-017 | Requests to the AI-assisted submission path shall not leak citizen identity to the external CV vendor beyond what is strictly required to classify a photograph. | The adapter sends only the photograph and category context to the CV service, never citizen PII. | *(new in v2.0, reflecting the addition of a real third-party AI dependency)* |
 
 ## 5.3 Reliability and Availability
@@ -670,8 +672,8 @@ target has yet been formally measured. Two additions reflect real, new dependenc
 
 | ID | Requirement | Acceptance Criterion |
 |---|---|---|
-| NFR-040 | The code base shall be version-controlled and continuously integrated. | All code in Git; CI is a documented gap, not yet wired (`docs/MAINTENANCE_AND_EVOLUTION.md`). |
-| NFR-041 | Automated tests shall cover the core workflow. | Vitest unit suites exist for both apps (permissions/state-transition-availability logic, report actions, metrics, the AWMA boundary check); coverage percentage and end-to-end coverage are reported in `docs/testing/TESTING_REPORT.md`. |
+| NFR-040 | The code base shall be version-controlled and continuously integrated. | All code in Git; CI is a documented gap, not yet wired (*Maintenance_and_Evolution.pdf*). |
+| NFR-041 | Automated tests shall cover the core workflow. | Vitest unit suites exist for both apps (permissions/state-transition-availability logic, report actions, metrics, the AWMA boundary check); coverage percentage and end-to-end coverage are reported in *Testing_Report.pdf*. |
 | NFR-042 | The system should expose machine-readable health and metrics endpoints. | Not yet implemented. |
 | NFR-043 | Configuration shall be externalised from code. | `.env` files (git-ignored) hold `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`; no environment-specific secret is committed to source control. |
 
@@ -782,7 +784,7 @@ to match the real submission/workflow behaviour; UC-06 and UC-07 are new.
 This section defines the logical data model at a conceptual level, consistent with
 v1.0's framing. The **physical** schema — exact columns, types, indexes, RLS
 policies, and the Mermaid ER diagram — is maintained in
-`docs/design/DESIGN_DOCUMENT.md` §6–7 and is kept in sync with
+*Design_Documentation.pdf* §6–7 and is kept in sync with
 `supabase/migrations/*.sql`, the actual source of truth; this section should be read
 as the conceptual companion to that physical design, not a duplicate of it.
 
@@ -826,7 +828,7 @@ capstone's "challenges and solutions" narrative should discuss.
 
 The Report entity follows a strict finite-state model. This table is revised from
 v1.0 to match exactly what `transition-report` enforces server-side (see
-`docs/design/DESIGN_DOCUMENT.md` §5.1 for the equivalent state diagram):
+*Design_Documentation.pdf* §5.1 for the equivalent state diagram):
 
 | From | To | Trigger | Authorised Actor |
 |---|---|---|---|
@@ -858,7 +860,7 @@ console-role carve-outs did not exist in v1.0 at all.
 
 This section is descriptive rather than prescriptive, consistent with v1.0's intent,
 but now names the implemented technology choices where useful; see
-`docs/design/DESIGN_DOCUMENT.md` §1 and §8 for the diagrams.
+*Design_Documentation.pdf* §1 and §8 for the diagrams.
 
 ## 8.1 High-Level Components
 
@@ -880,7 +882,7 @@ service.
 - Relational Database — Postgres (via Supabase), with the PostGIS extension enabled
   for the AWMA jurisdiction geofence and the pgvector extension present but currently
   dormant (its original duplicate-detection role has been taken over by the external
-  CV service's perceptual hashing — see §2.1 and `docs/design/DESIGN_DOCUMENT.md` §7).
+  CV service's perceptual hashing — see §2.1 and *Design_Documentation.pdf* §7).
 - Object Storage — Supabase Storage, private bucket, per-user folder scoping.
 - Email Gateway — Resend, for outbound transactional email.
 - Mapping Service — OpenStreetMap tiles via Leaflet, for the public map, staff map,
@@ -908,7 +910,7 @@ structure:
 
 ## 8.3 Context Diagram
 
-See `docs/design/DESIGN_DOCUMENT.md` §1 for the Mermaid rendering of this system's
+See *Design_Documentation.pdf* §1 for the Mermaid rendering of this system's
 context. In prose: at the centre sits the FixMyCity Backend Service with its Database
 and Object Storage. To the left, the Citizen Application is used by Residents over a
 mobile network. To the right, the MMDA Administrative Dashboard is used by Reports
@@ -999,7 +1001,8 @@ public API for third-party reporting integrations.
 after sufficient data is collected during the pilot." In practice, a project teammate
 built an external CV service ahead of that expectation, and the team integrated it —
 so image-hash-based duplicate detection (FR-018, FR-019, FR-089) is not a future
-enhancement but a delivered, verified feature (see `docs/NOTABLE_FEATURES.md`). The
+enhancement but a delivered, verified feature (see the Notable Implementation
+Features section of Project_Documentation.pdf). The
 in-house pgvector/embedding approach v1.0 implicitly assumed was never built; the
 external-vendor approach was used instead, which is a legitimate and arguably lower-
 risk way to satisfy the same product goal, and is recorded here as a scope decision
@@ -1057,7 +1060,7 @@ The items below are intentionally excluded from the present iteration. Each is
 presented with a brief rationale, a description, and a recommended priority. (One
 item originally listed here in v1.0 — machine-learning-based duplicate detection —
 has since shipped; see §9.4.) This appendix is developed further, with a full
-maintenance and roadmap treatment, in `docs/MAINTENANCE_AND_EVOLUTION.md`.
+maintenance and roadmap treatment, in *Maintenance_and_Evolution.pdf*.
 
 ## B.1 SMS and USSD Intake
 
@@ -1163,7 +1166,7 @@ Retained from v1.0 without change — see the archived v1.0 document
 the methodological notes on that process, and the Claude design / Figma Make
 prototype prompts used to build the citizen and console interfaces that were later
 ported into this repository's `citizen/` and `console/` React applications per
-CLAUDE.md's "port, not reinvent" instruction.
+the team's "port, not reinvent" instruction.
 
 ## D.7 Process Disclosure for the v2.0 Refresh *(new)*
 
@@ -1172,8 +1175,8 @@ v2.0 was AI-*assisted research and drafting under close direction*, with a
 different and arguably stronger guarantee of accuracy: every factual claim about the
 delivered system in this revision was derived by having Claude Code read the actual
 source of truth — all 18 database migrations in `supabase/migrations/`, all 10 edge
-functions in `supabase/functions/`, and the existing `docs/TRACKER.md` /
-`docs/NOTABLE_FEATURES.md` project records — rather than being re-prompted from
+functions in `supabase/functions/`, and the project's existing internal changelog and
+feature records — rather than being re-prompted from
 memory or intent. Where the real implementation disagreed with v1.0's requirements
 (the AI/duplicate-detection redesign, the state-machine precision, the unimplemented
 category/SLA configuration), that disagreement is stated explicitly in the relevant

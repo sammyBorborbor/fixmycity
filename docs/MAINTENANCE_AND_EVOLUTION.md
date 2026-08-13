@@ -1,16 +1,16 @@
 # FixMyCity — Maintenance Strategy & Future Evolution Plan
 
 CSCD 602 Capstone — Group Zero Down Time. This document is grounded in the project's
-*actual* maintenance practice to date (`docs/TRACKER.md`'s dated changelog, real git
-history, and the defect log in `docs/testing/TESTING_REPORT.md`) rather than a
+*actual* maintenance practice to date (the project's dated internal changelog, real git
+history, and the defect log in *Testing_Report.pdf*) rather than a
 generic textbook description of maintenance categories — every example below really
 happened.
 
 ## 1. Corrective Maintenance
 
 Corrective maintenance — fixing defects in already-delivered functionality — has
-been the most common category of change in this project. `docs/testing/
-TESTING_REPORT.md` §6 logs eleven real defects with dates, symptoms, and fixes; nine
+been the most common category of change in this project. *Testing_Report.pdf*
+§6 logs eleven real defects with dates, symptoms, and fixes; nine
 are resolved, two remain open. Representative examples: the self-duplicate
 resubmission bug (D-1, a citizen re-submitting a photo of their own already-open
 report fell through the duplicate check), the fixed-centre Leaflet map silently
@@ -25,8 +25,8 @@ the fix is verified against the live system rather than assumed correct — see 
 Adaptive maintenance — changing the system to match a changed environment or
 external dependency — has driven two of the project's largest changes:
 
-- **The AI approach changed entirely.** The original design (CLAUDE.md's initial
-  brief, and `docs/srs/SRS.md` v1.0) assumed an in-house classifier plus a
+- **The AI approach changed entirely.** The original design (the project's initial
+  brief, and *SRS.pdf* v1.0) assumed an in-house classifier plus a
   PostGIS/pgvector duplicate-detection pipeline. Once a project teammate built a
   capable external computer-vision microservice, the team adapted `submit-report`
   and `check-duplicates` to integrate with it instead (via the anti-corruption
@@ -35,8 +35,8 @@ external dependency — has driven two of the project's largest changes:
   iteration needs a fallback or a complementary similarity signal.
 - **The category set widened from 3 to 9** (2026-07-24) specifically to match the
   external CV vendor's own classification enum — an external dependency's shape
-  changed the product's own scope, by team sign-off, documented in `docs/srs/
-  SRS.md` §1.4 and `docs/TRACKER.md`.
+  changed the product's own scope, by team sign-off, documented in *SRS.pdf*
+  §1.4 and the project's dated changelog.
 
 ## 3. Perfective Maintenance
 
@@ -58,9 +58,9 @@ blanket `authenticated`/`anon` table grants down to a narrow, explicit allowlist
 (migration `20260707132647`) *before* any incident, not after; making
 `status_transitions` physically append-only via a database trigger rather than
 trusting application code to never issue an UPDATE; and the `duplicate_offers`
-IDOR gate (§6 of `docs/NOTABLE_FEATURES.md`), which was designed in alongside the
+IDOR gate (see the Notable Implementation Features section of Project_Documentation.pdf, feature 6), which was designed in alongside the
 follow-a-duplicate feature itself rather than retrofitted after a report of abuse.
-`docs/testing/TESTING_REPORT.md` §4 re-verified all of these live on 2026-08-12,
+*Testing_Report.pdf* §4 re-verified all of these live on 2026-08-12,
 specifically to confirm preventive controls put in place weeks earlier are still
 effective — a small, repeatable act of preventive maintenance in its own right.
 
@@ -69,28 +69,28 @@ effective — a small, repeatable act of preventive maintenance in its own right
 The observed (and recommended, going forward) process:
 
 1. **Find** — either through manual use, a live end-to-end test (as in
-   `docs/testing/TESTING_REPORT.md` §3), or a teammate's report.
+   *Testing_Report.pdf* §3), or a teammate's report.
 2. **Reproduce and scope** — confirm the defect against the live system (not a
    mock), and identify the narrowest correct fix rather than a broad rewrite.
 3. **Fix and verify live** — apply the fix, then re-test against the real backend.
-   `docs/NOTABLE_FEATURES.md` explicitly marks claims **"Verified"** only when this
+   The Notable Implementation Features section of Project_Documentation.pdf explicitly marks claims **"Verified"** only when this
    step happened, which is a discipline worth continuing.
-4. **Record** — a dated entry in `docs/TRACKER.md`'s "Recent changes" log, with
+4. **Record** — a dated entry in the project's "Recent changes" changelog, with
    enough detail (symptom, root cause, fix, verification) that a defect log like
-   `docs/testing/TESTING_REPORT.md` §6 can be reconstructed from it later, as this
+   *Testing_Report.pdf* §6 can be reconstructed from it later, as this
    document's Testing Report literally was.
 5. **Commit** — a small, focused commit with a plain-imperative message describing
-   the *why*, per the convention in `CLAUDE.md`.
+   the *why*, per the team's established commit convention.
 
 **Recommended addition:** a lightweight issue tracker (even GitHub Issues on the
-existing repo) once the team grows past the current informal TRACKER.md-as-changelog
+existing repo) once the team grows past the current informal single-file-changelog
 approach — the changelog works well for a single active repo owner but doesn't scale
 to concurrent work by multiple people without collision.
 
 ## 6. Version Control
 
-Git, hosted on GitHub (`https://github.com/sammyBorborbor/fixmycity`), with the
-conventions documented in `CLAUDE.md`: small reviewable commits, plain-imperative
+Git, hosted on GitHub (`https://github.com/sammyBorborbor/fixmycity`), with
+conventions the team has followed throughout: small reviewable commits, plain-imperative
 subject lines, no emoji/unicode noise, no AI-attribution trailers. **Honest note:**
 the repository currently works on a single `master` branch with direct commits — no
 feature-branch/PR review workflow exists yet. For a 6-person group this is a real
@@ -110,7 +110,7 @@ project continues to be maintained.
 
 ## 8. Security Updates
 
-Beyond the live-verified controls in `docs/testing/TESTING_REPORT.md` §4, two real
+Beyond the live-verified controls in *Testing_Report.pdf* §4, two real
 gaps are worth carrying forward honestly rather than glossed over:
 
 - **`supabase/seed/demo-users.sql` contains plaintext demo passwords**
@@ -121,7 +121,7 @@ gaps are worth carrying forward honestly rather than glossed over:
   pattern that would need to change before any production use beyond the pilot —
   e.g. generating random per-seed-run passwords and distributing them out-of-band,
   the way this submission's own `Links.txt` was kept out of the repository (see
-  `docs/TRACKER.md`'s deployment note and this document's own §5 discipline of not
+  the project's own deployment notes and this document's own §5 discipline of not
   repeating credentials in public documents).
 - **CORS is wildcard-open (`Access-Control-Allow-Origin: *`) on every edge
   function** (D-11 in the Testing Report). Not independently exploitable today
@@ -131,7 +131,7 @@ gaps are worth carrying forward honestly rather than glossed over:
 
 ## 9. Scalability
 
-`docs/srs/SRS.md` NFR-060/061 target 2,000 concurrent users and 2,000 reports/day
+*SRS.pdf* NFR-060/061 target 2,000 concurrent users and 2,000 reports/day
 with no schema redesign, and ~180 GB of photo storage over 12 months at pilot scale.
 The architecture is favourably positioned for this: edge functions are stateless
 (horizontal scaling is a platform concern, not an application one), Postgres is the
@@ -143,7 +143,7 @@ if the pilot expands is a k6/Artillery run against `submit-report` and
 
 ## 10. Future Features
 
-Prioritised from `docs/TRACKER.md`'s existing backlog and `docs/srs/SRS.md`'s
+Prioritised from the project's existing backlog and *SRS.pdf*'s
 honestly-flagged gaps (§9.4, Appendix B.6), highest-value first:
 
 1. **Category/SLA configuration** (SRS FR-045/072/082) — replace the fixed
@@ -161,12 +161,12 @@ honestly-flagged gaps (§9.4, Appendix B.6), highest-value first:
 5. **GitHub Actions CI** — run the Vitest suites (and, once built, the E2E suite)
    automatically on every push/PR.
 6. **Bulk operations, reassignment UX, CSV export** — the remaining Should/Could
-   FRs in `docs/srs/SRS.md` §9.2–9.3 not yet confirmed as implemented.
+   FRs in *SRS.pdf* §9.2–9.3 not yet confirmed as implemented.
 
 ## 11. Technology Migration
 
 No urgent migration is needed — the current stack (Supabase, Vite/React, Vercel) is
-portable and was chosen partly for that reason (`docs/srs/SRS.md` NFR-051). Two
+portable and was chosen partly for that reason (*SRS.pdf* NFR-051). Two
 migrations worth naming as *options*, not commitments: moving the citizen app to a
 server-rendered framework (e.g. Next.js) if SEO/public-marketing pages become a
 priority beyond the installable PWA; and, if the external CV vendor relationship
@@ -177,7 +177,7 @@ integration (§2 above).
 
 ## 12. Future Integration with Other Systems
 
-Carried forward from `docs/srs/SRS.md` Appendix B, unchanged in substance:
+Carried forward from *SRS.pdf* Appendix B, unchanged in substance:
 Electricity Company of Ghana (ECG) and Ghana Water Company Limited (GWCL) ticketing
 integrations for streetlight/water issues that cross jurisdictional boundaries;
 SMS/USSD intake for residents without smartphone data access; a public read-only API
@@ -203,7 +203,7 @@ technology migration rather than an incremental feature.
 - **On-device photo quality/compression checks** before upload, reducing wasted
   bandwidth on photos that would fail the CV service's environmental check anyway —
   particularly relevant given the project's explicit 3G/mid-range-Android targeting
-  (`docs/srs/SRS.md` NFR-001).
+  (*SRS.pdf* NFR-001).
 
 ## 14. Future Evolution Roadmap
 

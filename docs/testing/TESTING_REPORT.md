@@ -1,7 +1,7 @@
 # FixMyCity — Testing & Quality Assurance Report
 
-CSCD 602 Capstone — Group Zero Down Time. Companion to `docs/srs/SRS.md` (the
-requirements being tested against) and `docs/design/DESIGN_DOCUMENT.md` (the
+CSCD 602 Capstone — Group Zero Down Time. Companion to *SRS.pdf* (the
+requirements being tested against) and *Design_Documentation.pdf* (the
 architecture under test).
 
 **Testing date for the live evidence in this report:** 2026-08-12, run directly
@@ -22,7 +22,7 @@ gates (IDOR on follow, jurisdiction on submit) — run directly against the real
 backend rather than a mocked one, because RLS and edge-function behaviour are
 precisely the things a mock would paper over; and **honest gap-flagging** for
 performance and formal moderated usability testing, which are described in §7–8 but
-were not run this iteration due to time constraints, exactly as `docs/srs/SRS.md`
+were not run this iteration due to time constraints, exactly as *SRS.pdf*
 flags certain functional requirements as not-yet-implemented rather than silently
 claiming completeness.
 
@@ -125,7 +125,7 @@ runtime tests, no Playwright browser tests exist in the repo). §3–4 compensat
 testing the real edge functions and RLS policies directly against the live backend,
 which exercises the same logic these unit tests assert about the client copy of, but
 a dedicated Deno test harness for the edge functions themselves remains future work
-(tracked in `docs/MAINTENANCE_AND_EVOLUTION.md`).
+(tracked in *Maintenance_and_Evolution.pdf*).
 
 ## 3. Integration & System Testing — Live Closed-Loop Flow
 
@@ -191,7 +191,7 @@ where report_id = '2fc4bb23-82c5-4bdf-a447-641295ff9539' order by created_at;
 Exactly one notification per transition (the initial `submitted` transition has no
 notification by design — there is no one to notify yet). **This is a direct,
 live measurement of the "Closed-loop integrity" success criterion in
-`docs/srs/SRS.md` §9.5 (100% of transitions accompanied by a notification) — 4/4 on
+*SRS.pdf* §9.5 (100% of transitions accompanied by a notification) — 4/4 on
 this run.**
 
 ### 3.4 Clean-up
@@ -228,15 +228,16 @@ a signed-in citizen or staff session token.
 | 10 | Authenticated citizen submits a report with coordinates in Kumasi (outside AWMA) | Denied | **422** `{"code":"outside_awma", ...}` |
 
 Every probe returned exactly the access-control outcome the design claims (§8.4 of
-`docs/design/DESIGN_DOCUMENT.md`, NFR-013/016 of the SRS). Probe 9 in particular is a
-direct, dated, live re-verification of the IDOR fix documented in
-`docs/NOTABLE_FEATURES.md` §6 — confirming it is still effective as of this report's
-date, not just at the time it was originally built (2026-07-24).
+*Design_Documentation.pdf*, NFR-013/016 of the SRS). Probe 9 in particular is a
+direct, dated, live re-verification of the IDOR fix described in the Notable
+Implementation Features section of Project_Documentation.pdf, feature 6 — confirming
+it is still effective as of this report's date, not just at the time it was
+originally built (2026-07-24).
 
 **Not covered by this pass** (honest scope note): a full OWASP Top Ten sweep
 (injection fuzzing, XSS payloads in free-text fields, CSRF), automated dependency
-vulnerability scanning, and the CORS wildcard gap already flagged in
-`docs/TRACKER.md` (every edge function currently sends
+vulnerability scanning, and the CORS wildcard gap already flagged in the project's
+internal changelog (every edge function currently sends
 `Access-Control-Allow-Origin: *`; not independently exploitable because auth is a
 bearer token browsers won't auto-attach cross-origin, but flagged as a
 defense-in-depth gap — see §6, D-11).
@@ -246,7 +247,7 @@ defense-in-depth gap — see §6, D-11).
 Formal moderated usability testing against NFR-030 (≥90% of first-time users
 complete a report in ≤90 seconds) was not conducted this iteration — flagged
 honestly rather than fabricated (§7). What *is* available as UAT-adjacent evidence:
-`docs/design/UI_SCREENSHOTS.md` captures 18 real screens from both apps, driven live
+*Design_Documentation.pdf* captures 18 real screens from both apps, driven live
 against the production dataset via Playwright, demonstrating that every golden-path
 screen in the SRS's use cases (UC-01 through UC-05) renders correctly with real data
 — the report-detail timeline, the console inbox with live filter counts, the
@@ -255,7 +256,7 @@ functional/visual confirmation, not a substitute for a moderated usability study
 
 ## 6. Defects Found and Resolved
 
-Mined from `docs/TRACKER.md`'s dated change history and git log — a real log of bugs
+Mined from the project's dated internal change history and git log — a real log of bugs
 found during development, not a retrospective invention. Each entry names the
 symptom, the fix, and (where available) how it was verified.
 
@@ -270,12 +271,12 @@ symptom, the fix, and (where available) how it was verified.
 | D-7 | 2026-07 (M6) | The inline step-2 location map conflated scrolling the page with panning the map, making it hard to use one-handed on mobile. | Replaced with a locked preview + full-screen `MapLocationModal` (fixed centre pin, citizen pans the map underneath, explicit Confirm). | Manual UX check; matches the "Uber-style" pattern used across the redesigned flow. |
 | D-8 | 2026-07-23 | Seed data left `Crew Gamma` with a stale `member_count` of 3 while it actually had zero assigned members, after manual roster edits during seeding. | `manage-crews` gained a `resyncCount()` helper that recounts `profiles.crew_id` on every membership change instead of trusting a denormalised counter. | Verified against the corrected seed data. |
 | D-9 | Ongoing, pre-existing | The Analytics screen's "Avg. resolution time" and "Resolved this week" figures were hardcoded placeholder values (3.4 days / +2), not computed from real data — a correctness gap rather than a crash, but one that would have shipped misleading numbers to an Administrator. | Replaced with a real computation over the `submitted → resolved` timestamp span and a rolling 7-day window (`console/src/lib/metrics.ts`, unit-tested — §2.2). | Rendered values checked against an independent direct-SQL computation at the time of the fix; the same logic is now covered by `metrics.test.ts`. |
-| D-10 | 2026-08-12 (found during this testing pass) | An uploaded report photo cannot be deleted from Storage using the uploading citizen's own bearer token (`403 Access denied`), and direct SQL deletion of `storage.objects` is blocked by Supabase's own `protect_delete()` trigger — so any code path that needs to clean up an orphaned photo (a cancelled report, an abandoned duplicate-follow choice, or this testing pass's own test photo) cannot fully clean up client-side. | **Not yet fixed.** `follow-report`'s best-effort photo cleanup (§ NOTABLE_FEATURES.md, feature 5) already works around this using the edge function's service-role privileges rather than the client's; the same approach would need to be applied anywhere else client-side cleanup is attempted. Currently harmless (orphaned private-bucket objects, not publicly readable, small storage cost) but worth a scheduled janitor job — added to `docs/MAINTENANCE_AND_EVOLUTION.md`. | Reproduced live, 2026-08-12 (§3.4), consistent with a limitation the team had already independently discovered in earlier E2E testing (2026-07-31 session notes). |
-| D-11 | Ongoing, not yet fixed | Every edge function sends `Access-Control-Allow-Origin: *`. Not independently exploitable (bearer-token auth isn't browser-auto-attached cross-origin), but a defense-in-depth gap flagged by an earlier automated security review of the follow-a-duplicate work. | **Not yet fixed** — tracked as backlog in `docs/TRACKER.md` and `docs/MAINTENANCE_AND_EVOLUTION.md`. | N/A — documented, not yet remediated. |
+| D-10 | 2026-08-12 (found during this testing pass) | An uploaded report photo cannot be deleted from Storage using the uploading citizen's own bearer token (`403 Access denied`), and direct SQL deletion of `storage.objects` is blocked by Supabase's own `protect_delete()` trigger — so any code path that needs to clean up an orphaned photo (a cancelled report, an abandoned duplicate-follow choice, or this testing pass's own test photo) cannot fully clean up client-side. | **Not yet fixed.** `follow-report`'s best-effort photo cleanup (see the Notable Implementation Features section of Project_Documentation.pdf, feature 5) already works around this using the edge function's service-role privileges rather than the client's; the same approach would need to be applied anywhere else client-side cleanup is attempted. Currently harmless (orphaned private-bucket objects, not publicly readable, small storage cost) but worth a scheduled janitor job — added to *Maintenance_and_Evolution.pdf*. | Reproduced live, 2026-08-12 (§3.4), consistent with a limitation the team had already independently discovered in earlier E2E testing (2026-07-31 session notes). |
+| D-11 | Ongoing, not yet fixed | Every edge function sends `Access-Control-Allow-Origin: *`. Not independently exploitable (bearer-token auth isn't browser-auto-attached cross-origin), but a defense-in-depth gap flagged by an earlier automated security review of the follow-a-duplicate work. | **Not yet fixed** — tracked as backlog in the project's internal changelog and *Maintenance_and_Evolution.pdf*. | N/A — documented, not yet remediated. |
 
 ## 7. Performance Testing
 
-**Not run this iteration.** `docs/srs/SRS.md` §5.1 defines concrete, measurable
+**Not run this iteration.** *SRS.pdf* §5.1 defines concrete, measurable
 targets (TTI ≤ 5 s on a 1 Mbps/250 ms 3G profile, API P95 ≤ 600 ms reads / 1500 ms
 writes, 200 concurrent users sustained for an hour). None of these have been formally
 measured against the deployed citizen app or the live backend. Recommended follow-up,
@@ -291,7 +292,7 @@ NFR-003/005. This is recorded as an explicit gap rather than presented as satisf
 (≥90% of first-time citizens complete a report in ≤90 seconds unaided) and NFR-033
 (Flesch–Kincaid ≤ grade 8 on key screens) are both measurable with a small moderated
 session and are recommended as the first usability-testing pass in
-`docs/MAINTENANCE_AND_EVOLUTION.md`.
+*Maintenance_and_Evolution.pdf*.
 
 ## 9. Requirements Coverage Summary
 
@@ -320,6 +321,6 @@ afterward. Security posture (RLS, the IDOR fix, the jurisdiction gate, and the
 inability to bypass the state machine with a direct table write) was independently
 re-confirmed the same day, rather than taken on trust from earlier development notes.
 Eleven real defects are logged with their fixes, two of which remain open and are
-carried into `docs/MAINTENANCE_AND_EVOLUTION.md`. Performance and formal usability
+carried into *Maintenance_and_Evolution.pdf*. Performance and formal usability
 testing are the two most significant gaps and are named as such rather than
 glossed over.
