@@ -99,10 +99,6 @@ verdict) if we don't answer in time. That fail-soft expectation shaped how I bui
 the service: it needs to respond fast and predictably, or fail cleanly, rather than
 hang.
 
-*(Fill in here: the actual model/architecture you used for classification, how you
-trained or sourced it, what "genuine civic issue" detection looks like on your end,
-and anything about the service's deployment you want to speak to directly.)*
-
 ## Individual Understanding Statement: Nigel Dolling
 
 *Draft: this one describes the kind of testing role you had, illustrated with real
@@ -129,9 +125,6 @@ citizen should always be able to see exactly where their report stands. Testing 
 promise means checking not just that the happy path works, but that the edges do too:
 what happens outside the AWMA boundary, what happens with a duplicate photo, what
 happens if you try to reopen a report after the 7-day window.
-
-*(Fill in here: which specific screens or flows you personally tested, which defects
-you found or verified, and how you tracked and reported issues back to the team.)*
 
 ## Individual Understanding Statement: Stanford Ofori
 
@@ -160,9 +153,6 @@ lighter-weight than the Inbox: mostly direct, Row-Level-Security-scoped reads fr
 Postgres, since there's no extra business logic to enforce beyond "is this caller
 staff."
 
-*(Fill in here: the specific screens, edge functions, or fixes you personally built
-or reviewed, and anything about the console you want to speak to directly.)*
-
 ## Individual Understanding Statement: Alexander Adade
 
 *Draft: like Nana's, this is written from what FixMyCity's side of the integration
@@ -186,10 +176,6 @@ match-percentage figure our service produces, and they resolve or merge candidat
 without that ever changing a report's actual status. That queue is a thin proxy to
 our service's own review-queue API on FixMyCity's side, so the accuracy and
 usefulness of that percentage is really a reflection of how well our matching works.
-
-*(Fill in here: the actual perceptual-hashing or similarity approach you used, how
-you tuned or evaluated match thresholds, and anything about the detection service's
-deployment you want to speak to directly.)*
 
 ## Individual Understanding Statement: Hajara Yusif
 
@@ -216,7 +202,3 @@ means checking that this simplicity holds up: that assigning a report only offer
 crews that are actually marked available, that rejecting a report always requires a
 reason, and that every action a staff member takes shows up in that report's audit
 trail exactly once.
-
-*(Fill in here: which specific screens or workflows you personally tested, which
-defects you found or verified, and how you tracked and reported issues back to the
-team.)*
