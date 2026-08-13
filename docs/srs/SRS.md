@@ -5,16 +5,15 @@
 *A Civic Issue-Reporting Platform for Ghanaian Metropolitan, Municipal, and District
 Assemblies*
 
-**Document Version:** 2.0
-**Status:** Revised for capstone submission (refreshed from the v1.0 draft to match
-the delivered system)
-**Prepared by:** Nana Agyemang Duah (22425071) · Nigel Dolling (22424595) · Samuel
-Owusu Ampadu (22424245) · Stanford Ofori (22427427) · Alexander Adade (22424693) ·
-Hajara Yusif (22425066), Group **Zero Down Time**
-**Lecturer:** Prof. Solomon Mensah
-**Course:** CSCD 602: Advanced Software Engineering
-**Department of Computer Science, University of Ghana, Legon**
-*August 2026*
+| | |
+|---|---|
+| **Document Version** | 2.0 |
+| **Status** | Revised for capstone submission (refreshed from the v1.0 draft to match the delivered system) |
+| **Prepared by** | Nana Agyemang Duah (22425071), Nigel Dolling (22424595), Samuel Owusu Ampadu (22424245), Stanford Ofori (22427427), Alexander Adade (22424693), Hajara Yusif (22425066), Group **Zero Down Time** |
+| **Lecturer** | Prof. Solomon Mensah |
+| **Course** | CSCD 602: Advanced Software Engineering |
+| **Department** | Department of Computer Science, University of Ghana, Legon |
+| **Date** | August 2026 |
 
 See the cover page of Project_Documentation.pdf for the canonical roster and
 *Design_Documentation.pdf* for the accompanying diagrams (use-case, ER, class,

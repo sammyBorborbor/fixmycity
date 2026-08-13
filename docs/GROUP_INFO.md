@@ -4,12 +4,13 @@ Canonical group/member record for the FixMyCity capstone submission. Reused verb
 in the SRS, README, and the coursework's required "Group Information" section. Update
 here first if anything changes, then propagate.
 
-**Group Number/Name:** Zero Down Time
-**Project Title:** FixMyCity: A Civic Issue-Reporting Platform for Ayawaso West
-Municipal Assembly, Ghana
-**Course:** CSCD 602, Advanced Software Engineering (MSc)
-**Lecturer:** Prof. Solomon Mensah
-**Department:** Department of Computer Science, University of Ghana, Legon
+| | |
+|---|---|
+| **Group Number/Name** | Zero Down Time |
+| **Project Title** | FixMyCity: A Civic Issue-Reporting Platform for Ayawaso West Municipal Assembly, Ghana |
+| **Course** | CSCD 602, Advanced Software Engineering (MSc) |
+| **Lecturer** | Prof. Solomon Mensah |
+| **Department** | Department of Computer Science, University of Ghana, Legon |
 
 ## Members
 
