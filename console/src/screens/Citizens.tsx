@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '../lib/store.tsx';
 import Icon from '../components/Icon.tsx';
-import Pagination, { usePaginated } from '../components/Pagination.tsx';
+import Pagination from '../components/Pagination.tsx';
+import { usePaginated } from '../lib/usePaginated.ts';
 
 /* Read-only directory of registered citizens (Administrator/Supervisor only).
    Data comes from the store's `citizens` (profiles where role='citizen', with an

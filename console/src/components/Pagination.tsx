@@ -1,28 +1,4 @@
-import { useEffect, useState } from 'react';
 import Icon from './Icon.tsx';
-
-/* Client-side pagination. `usePaginated` slices an already-filtered/sorted array
-   into pages; pass a `resetKey` (e.g. the active filter/search) so the page jumps
-   back to 1 whenever the underlying set changes. The page is clamped at render, so
-   a shrinking list never strands you on an out-of-range page. */
-export function usePaginated<T>(items: T[], pageSize = 20, resetKey: unknown = null) {
-  const [page, setPage] = useState(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the caller's filter/search changes
-  useEffect(() => { setPage(1); }, [resetKey]);
-
-  const total = items.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const current = Math.min(page, totalPages);
-  const start = (current - 1) * pageSize;
-  return {
-    pageItems: items.slice(start, start + pageSize),
-    page: current,
-    setPage,
-    totalPages,
-    total,
-    pageSize,
-  };
-}
 
 interface PaginationProps {
   page: number;

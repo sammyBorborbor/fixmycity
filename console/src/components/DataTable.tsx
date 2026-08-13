@@ -1,7 +1,8 @@
 import StatusPill from './StatusPill.tsx';
 import CategoryBadge from './CategoryBadge.tsx';
 import Icon from './Icon.tsx';
-import Pagination, { usePaginated } from './Pagination.tsx';
+import Pagination from './Pagination.tsx';
+import { usePaginated } from '../lib/usePaginated.ts';
 import { crewName, relTime } from '../lib/store.tsx';
 import type { Report } from '../lib/store.tsx';
 

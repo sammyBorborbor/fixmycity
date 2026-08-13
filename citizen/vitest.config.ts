@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from 'vitest/config';
 
 // Separate from vite.config.ts on purpose: the app build wires in the PWA plugin,

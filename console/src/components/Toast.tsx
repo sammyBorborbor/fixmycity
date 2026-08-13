@@ -1,29 +1,26 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Icon from './Icon.tsx';
+import { ToastContext } from '../lib/toastContext.ts';
+import type { ToastApi, ToastKind } from '../lib/toastContext.ts';
 
 /* ---------------------------------------------------------------------------
    Lightweight, dependency-free toast system.
 
    Deliberately kept in its own context (not folded into the big store value)
    so firing a toast doesn't re-render every store consumer. Mount <ToastProvider>
-   once (see main.tsx) and call useToast() anywhere below it:
+   once (see main.tsx) and call useToast() (lib/useToast.ts) anywhere below it:
 
      const toast = useToast();
      toast.success('Ama Darko is now an Administrator');
      toast.error('Could not update the role.');
+
+   Split across three files (this component, lib/toastContext.ts, lib/useToast.ts)
+   so each file exports only one kind of thing, which is what React Fast Refresh
+   needs to hot-reload a component edit without a full page reload.
 --------------------------------------------------------------------------- */
 
-type ToastKind = 'success' | 'error' | 'info';
 interface Toast { id: number; kind: ToastKind; message: string }
-
-interface ToastApi {
-  success: (message: string) => void;
-  error: (message: string) => void;
-  info: (message: string) => void;
-}
-
-const ToastContext = createContext<ToastApi | null>(null);
 
 const style: Record<ToastKind, { icon: string; tint: string }> = {
   success: { icon: 'CheckCircle2', tint: 'text-green-600' },
@@ -70,10 +67,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   );
-}
-
-export function useToast(): ToastApi {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToast must be used within a ToastProvider');
-  return ctx;
 }

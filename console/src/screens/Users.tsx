@@ -3,8 +3,9 @@ import { useStore, ROLES, UNITS } from '../lib/store.tsx';
 import type { RoleName, Staff } from '../lib/store.tsx';
 import Btn from '../components/Btn.tsx';
 import ConfirmDialog from '../components/ConfirmDialog.tsx';
-import Pagination, { usePaginated } from '../components/Pagination.tsx';
-import { useToast } from '../components/Toast.tsx';
+import Pagination from '../components/Pagination.tsx';
+import { usePaginated } from '../lib/usePaginated.ts';
+import { useToast } from '../lib/useToast.ts';
 
 const roleStyle: Record<RoleName, string> = {
   Administrator: 'bg-navy/10 text-navy ring-navy/20',
