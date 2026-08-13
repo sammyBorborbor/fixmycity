@@ -13,7 +13,7 @@ Broken Public Facility, Poor Sanitation, Other) · 4 roles (Citizen, Officer, Fi
 Administrator) · Progressive Web App. _(Categories widened 2026-07-24 from the original
 locked three, by team sign-off, to match the AI model's enum.)_
 
-**Last updated:** 2026-08-12
+**Last updated:** 2026-08-13
 
 **Legend:** ✅ Done · 🟡 Partial / in progress · ⬜ Not started · 🔒 Blocked (reason given)
 
@@ -194,6 +194,15 @@ anti-corruption client that translates its vocabulary to ours.
 - **Schema:** migration `20260715120000_external_cv_api.sql` adds `external_report_id`,
   `duplicate_status`, `detected_objects`, `perceptual_hash` to `reports`.
 - **Config:** `IMAGE_MODEL_URL` = the CV API base URL; `IMAGE_MODEL_API_KEY` optional.
+  As of 2026-08-13, `IMAGE_MODEL_URL` points at
+  `https://a936-2a01-4f8-191-502f-00-2.ngrok-free.app` (confirmed reachable, HTTP 200)
+  from teammates Nana and Alexander's repo (`RoyalsTechnologies/duplicate-image-detection`,
+  linked in the submission `Links.txt`). This is a free-tier ngrok tunnel, not a stable
+  endpoint: it will go dead whenever that tunnel session ends (their machine sleeps,
+  reboots, or the free session times out), and a new run issues a different URL. Treat
+  this as a point-in-time record of the configured value, not a durable reference; if
+  `submit-report` starts returning null AI metadata, check whether this URL is still up
+  and, if not, get a fresh one and update the Supabase secret.
 
 ✅ **Follow-a-duplicate (citizen-facing dedup).** When the CV service flags a citizen's
 submission as a strong duplicate (`duplicate_status = 'duplicate'`) of an existing report,
