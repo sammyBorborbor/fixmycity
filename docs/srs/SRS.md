@@ -1187,6 +1187,76 @@ revision-history entry, not a silent edit.
 
 ---
 
+# Appendix E. Third-Party Acknowledgements
+
+Per the coursework's requirement that any third-party APIs, services, libraries,
+datasets, or frameworks be appropriately acknowledged, this appendix lists every
+external component the delivered system depends on. Nothing here is exhaustive of
+every transitive npm package (hundreds, standard for any modern front-end build);
+it names the components the system's own architecture and design decisions
+(Sections 2, 3, and 8) directly rely on and credit by name elsewhere in this
+document.
+
+## E.1 Platforms and managed services
+
+- **Supabase** ("supabase-js" client library, `@supabase/supabase-js`): managed
+  Postgres, Authentication, Storage, Realtime, and Edge Functions. The backend of
+  record for the entire system.
+- **Vercel**: hosting and deployment for both front-end applications, plus
+  `@vercel/analytics` for client-side performance metrics.
+- **OpenStreetMap**: the map tile and geocoding data source for every map view in
+  both applications, via the standard tile server (`tile.openstreetmap.org`), used
+  under the OpenStreetMap licence, which is why every map component renders the
+  attribution "© OpenStreetMap contributors" linking to
+  `openstreetmap.org/copyright`, as its terms require.
+- **Resend**: the transactional email provider for status-transition notifications.
+- **Nominatim** (OpenStreetMap's geocoding service): used once, outside the running
+  application, to fetch the AWMA jurisdiction boundary polygon committed to the
+  repository (`data/awma-boundary.geojson`) and to power the citizen app's
+  address-search/reverse-geocoding feature at runtime.
+
+## E.2 The external AI model
+
+- **Computer-vision classification and duplicate-detection service**, built and
+  operated by teammates Nana Agyemang Duah and Alexander Adade
+  (`https://github.com/RoyalsTechnologies/duplicate-image-detection`), reached by
+  FixMyCity's backend as an external HTTP API rather than vendored into this
+  repository. See the anti-corruption adapter described in
+  *Design_Documentation.pdf* §1 and §8, and `Links.txt` for the repository link.
+
+## E.3 Core frameworks and libraries (both front-end applications)
+
+| Component | Role |
+|---|---|
+| React (19.x) | UI framework for both applications |
+| Vite (8.x) | Build tool and dev server |
+| TypeScript (in strict mode) | Application language |
+| Tailwind CSS (v4, via `@tailwindcss/vite`) | Styling |
+| react-router-dom (v7) | Client-side routing |
+| lucide-react | Icon set used throughout both design systems |
+| Leaflet and react-leaflet | Interactive map rendering, wrapping the OpenStreetMap tiles above |
+| vite-plugin-pwa | Progressive Web App shell/manifest generation (citizen app only) |
+| Vitest | The unit-testing framework used for both apps' automated test suites |
+
+## E.4 Database extensions
+
+- **PostGIS**: the Postgres extension powering the AWMA jurisdiction point-in-polygon
+  gate.
+- **pgvector**: the Postgres extension supporting the (currently dormant) in-database
+  duplicate-similarity path, kept in the schema as a fallback should the external CV
+  vendor relationship end (*Maintenance_and_Evolution.pdf* §11).
+
+## E.5 Data sources
+
+- **Ghana Statistical Service, 2021 Population and Housing Census**: the source for
+  AWMA's population figure (75,303) cited in this SRS's project-scope description
+  (§1.4) and in `CLAUDE.md`.
+- **OpenStreetMap contributors**, via the Nominatim fetch described in E.1: the
+  source of the AWMA administrative boundary polygon enforced by the jurisdiction
+  gate.
+
+---
+
 *This Software Requirements Specification is issued as Version 2.0 for capstone
 submission. Subsequent versions, if any, will be recorded in the Revision History in
 the Document Control section.*

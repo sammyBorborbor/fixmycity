@@ -138,12 +138,21 @@ yarn supabase <command>
 | Routing | react-router-dom v7 |
 | Icons | lucide-react |
 | PWA | vite-plugin-pwa (citizen app only; console is a desktop-only tool) |
-| Backend | Supabase — Postgres (+ PostGIS, pgvector present but currently dormant), Auth, Storage, 10 Deno Edge Functions |
+| Backend | Supabase: Postgres (+ PostGIS, pgvector present but currently dormant), Auth, Storage, 10 Deno Edge Functions |
 | AI | External computer-vision microservice (photo classification + perceptual-hash duplicate detection), reached through an anti-corruption adapter |
 | Maps | Leaflet + OpenStreetMap (both apps; no paid API key) |
 | Email | Resend (transactional notification emails) |
 | Hosting | Vercel — both apps deployed; GitHub Actions CI still outstanding |
 | Testing | Vitest (50 unit tests across both apps); see the Testing Report for live integration/security evidence |
+
+**Acknowledgements:** built on Supabase, Vercel, React, Vite, Tailwind CSS,
+react-router-dom, lucide-react, Leaflet, Resend, and PostGIS/pgvector; map tiles and
+the AWMA boundary polygon are © OpenStreetMap contributors, used under the
+OpenStreetMap licence; population figures cite the Ghana Statistical Service's 2021
+census. The AI classification/duplicate-detection service is an external dependency
+owned by teammates Nana Agyemang Duah and Alexander Adade
+(`RoyalsTechnologies/duplicate-image-detection`), reached over HTTP rather than
+vendored into this repository. Full detail in `docs/srs/SRS.md` Appendix E.
 
 ## Documentation
 
