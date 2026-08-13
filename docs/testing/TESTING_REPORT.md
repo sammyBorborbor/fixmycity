@@ -242,7 +242,9 @@ internal changelog (every edge function currently sends
 bearer token browsers won't auto-attach cross-origin, but flagged as a
 defense-in-depth gap; see §6, D-11).
 
-## 5. User Acceptance / Usability Evidence
+## 5. User Acceptance / Usability Evidence, and a Code Audit of Unconfirmed Requirements
+
+### 5.1 UAT-adjacent evidence
 
 Formal moderated usability testing against NFR-030 (≥90% of first-time users
 complete a report in ≤90 seconds) was not conducted this iteration, flagged
@@ -253,6 +255,32 @@ screen in the SRS's use cases (UC-01 through UC-05) renders correctly with real 
 the report-detail timeline, the console inbox with live filter counts, the
 Duplicate Reviews queue with real CV-service match percentages, and so on. This is
 functional/visual confirmation, not a substitute for a moderated usability study.
+
+### 5.2 Code audit: closing out the SRS's "confirm in Testing Report" flags
+
+An earlier revision of *SRS.pdf* marked eight Should-have requirements as
+"implementation status to be confirmed in the Testing Report" without that
+confirmation actually happening: a dangling promise this report is now closing,
+by reading the actual source rather than assuming. One of these turned up a real
+factual error in the SRS itself (FR-016's stated cap), not just a missing feature.
+
+| ID | SRS requirement | Status | Evidence |
+|---|---|---|---|
+| FR-007 | Citizen account deletion, with reports anonymised | **Not implemented** | `citizen/src/screens/Profile.tsx` has no delete-account action, only Sign out; no matching edge function or Supabase Auth admin-delete call exists anywhere in `supabase/functions/`. |
+| FR-016 | Up to three photographs per report | **SRS was wrong, not the code**: the real cap is five | `MAX_PHOTOS = 5` enforced identically in `citizen/src/screens/ReportFlow.tsx` (client) and `supabase/functions/submit-report/index.ts` (server, `'1-5 photos required'`). The SRS's "three" has been corrected to "five" to match. |
+| FR-023 | Follow-up comments on an open report | **Not implemented** | No comment field, comment table, or comment-posting edge function exists anywhere in the codebase. |
+| FR-033 | Public map accessible without authentication | **Not implemented as specified** | `citizen/src/App.tsx` wraps the `/map` route in a `RequireAuth` guard that redirects to `/login` when signed out, the opposite of this requirement. |
+| FR-054 | Reassign a report from one crew to another | **Not implemented** | `console/src/lib/reportActions.ts` and `supabase/functions/transition-report/index.ts` both only allow the Assign action from Submitted, Acknowledged, or Reopened, never from Assigned itself. |
+| FR-085 | CSV export for Administrators | **Not implemented** | No CSV-related code exists anywhere in `console/src`. |
+| FR-090 | Dashboard: total submitted, total resolved, backlog, avg. resolution time | **Partially implemented** | `console/src/screens/Analytics.tsx` shows total reports, open backlog, and average resolution time; it shows resolved-this-week rather than an all-time total-resolved count. |
+| FR-091 | Hotspot view of geographic report clusters | **Not implemented** | `console/src/screens/MapView.tsx` plots individual markers only; no clustering, density, or heatmap logic exists. |
+| FR-092 | Per-crew productivity, Administrator-only | **Not implemented** | `console/src/screens/Crews.tsx` shows only a member count per crew; no assigned/in-progress/resolved counts or resolution-time stats exist per crew. |
+
+Six of the eight are genuinely not built and are carried forward as future work in
+*Maintenance_and_Evolution.pdf*; one (FR-090) is partially delivered; one (FR-016)
+was a documentation error in the SRS, now corrected to describe what was actually
+shipped. All eight *SRS.pdf* rows have been updated to reflect this table rather
+than left as an open promise.
 
 ## 6. Defects Found and Resolved
 

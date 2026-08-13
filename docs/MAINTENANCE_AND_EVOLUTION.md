@@ -160,8 +160,22 @@ honestly-flagged gaps (§9.4, Appendix B.6), highest-value first:
    assert.
 5. **GitHub Actions CI**: run the Vitest suites (and, once built, the E2E suite)
    automatically on every push/PR.
-6. **Bulk operations, reassignment UX, CSV export**: the remaining Should/Could
-   FRs in *SRS.pdf* §9.2–9.3 not yet confirmed as implemented.
+6. **The six Should-have FRs a code audit confirmed were never built**
+   (*Testing_Report.pdf* §5.2): crew reassignment on an Assigned report (FR-054),
+   CSV export for Administrators (FR-085), a per-crew productivity view (FR-092), a
+   geographic hotspot/cluster view (FR-091), follow-up comments on an open report
+   (FR-023), and citizen account deletion with anonymisation (FR-007). None of the
+   six is difficult in isolation; they're grouped here because they were simply
+   deprioritised against the Must-have list within the capstone timeline, not
+   because of any technical blocker.
+7. **A public map route that doesn't require sign-in** (FR-033): the Map screen is
+   currently wrapped in the same `RequireAuth` guard as the rest of the citizen app,
+   which is the opposite of what the SRS specifies and the more defensible product
+   decision (a public, unauthenticated map is meant to build civic trust). Splitting
+   the router so `/map` sits outside the guard is a small, low-risk change.
+8. **An all-time "total resolved" figure on the Analytics dashboard** (FR-090):
+   currently only a resolved-this-week count is computed; the underlying data is
+   already there, this is a small addition to `metrics.ts`.
 
 ## 11. Technology Migration
 
