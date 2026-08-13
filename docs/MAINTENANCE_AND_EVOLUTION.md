@@ -108,6 +108,29 @@ enable Dependabot on the GitHub repo (zero-config for a public repo) for securit
 advisories at minimum, and schedule a manual `yarn outdated` pass each semester the
 project continues to be maintained.
 
+**Lint status, checked and fixed as part of this documentation pass:** both apps
+now lint clean. Before this pass, `console` had three real ESLint errors
+(`Pagination.tsx` and `Toast.tsx` each mixed a hook export with a component
+export, which breaks React Fast Refresh, and `usePaginated` reset its page via
+`setState` inside a `useEffect`, an anti-pattern the newer
+`react-hooks/set-state-in-effect` rule catches) and `citizen` had one (a stale
+triple-slash type reference). All four are fixed: the hooks moved to their own
+files under `lib/`, and the pagination reset now uses React's documented
+"adjust state during render" pattern instead of an effect. Verified live, not
+just from the diff, against the actual filter-then-paginate interaction.
+
+**Known structural trade-off, not yet fixed:** `citizen/` and `console/` are two
+independent apps with no shared package, so several small, generic components
+(`Icon.tsx`, `Btn.tsx`, `StatusPill.tsx`, `CategoryBadge.tsx`) are byte-for-byte
+duplicated between them, and `supabase.ts`/`database.types.ts` are duplicated
+with minor per-app differences. A design-system change (a new icon, a status-pill
+colour tweak) currently has to be applied twice by hand, with nothing enforcing
+that the two copies stay in sync. The honest fix is a small shared package (a
+Yarn/npm workspace with a `packages/ui` or similar) that both apps depend on;
+deferred for this capstone iteration since the duplication is currently small (a
+handful of files) and stable (these components haven't needed a change since
+early in the project), but flagged here rather than left silently undocumented.
+
 ## 8. Security Updates
 
 Beyond the live-verified controls in *Testing_Report.pdf* §4, two real
