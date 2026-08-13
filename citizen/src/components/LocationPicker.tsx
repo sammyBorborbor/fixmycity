@@ -116,7 +116,6 @@ export default function LocationPicker({ location, onLocationChange, onPositionC
           scrollWheelZoom={false}
           keyboard={false}
           boxZoom={false}
-          attributionControl={false}
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer
