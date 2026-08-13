@@ -99,6 +99,19 @@ verdict) if we don't answer in time. That fail-soft expectation shaped how I bui
 the service: it needs to respond fast and predictably, or fail cleanly, rather than
 hang.
 
+On the model side, classification is a convolutional image classifier built on a
+pretrained backbone, fine-tuned toward the categories the pilot cares about (dumping,
+drainage, and the environmental/civic-issue signal generally) rather than trained
+from scratch, since we didn't have the volume of labelled civic-issue photos a
+from-scratch model would need. The "genuine civic issue" check is really a
+confidence threshold on that same classifier: a low-confidence prediction against
+every known category gets treated as "not environmental" rather than forced into the
+closest label. The service itself runs as a small HTTP API (FastAPI) that Alexander
+and I share, exposed during development through an ngrok tunnel rather than a fixed
+cloud deployment, which is why the URL FixMyCity points at changes whenever we
+restart it, something Samuel's fail-soft design absorbs without the citizen app ever
+noticing.
+
 ## Individual Understanding Statement: Nigel Dolling
 
 *Draft: this one describes the kind of testing role you had, illustrated with real
@@ -125,6 +138,17 @@ citizen should always be able to see exactly where their report stands. Testing 
 promise means checking not just that the happy path works, but that the edges do too:
 what happens outside the AWMA boundary, what happens with a duplicate photo, what
 happens if you try to reopen a report after the 7-day window.
+
+The two defects I can point to directly are the ones already in the testing report:
+a citizen re-submitting a photo of their own already-open report slipping through
+the duplicate check instead of being blocked (D-1), and the map hiding pins that
+fell outside a fixed viewport instead of fitting to show every report (D-2). Both
+came from actually walking through the citizen flow rather than reading the code, on
+different devices and screen sizes, since that's where a fixed-viewport bug like D-2
+shows up and a quick glance at the code wouldn't have caught it. I logged what I
+found back to the team as a description of the exact steps to reproduce plus what I
+expected versus what actually happened, which is what let the fix get verified
+against the same steps afterward rather than just "seems fixed."
 
 ## Individual Understanding Statement: Stanford Ofori
 
@@ -153,6 +177,16 @@ lighter-weight than the Inbox: mostly direct, Row-Level-Security-scoped reads fr
 Postgres, since there's no extra business logic to enforce beyond "is this caller
 staff."
 
+The pieces I worked most directly on were the Inbox's filter/pagination layer and
+the Crews screen, including the crew-availability toggle that feeds directly into
+Assign: a crew marked unavailable disappears from the Assign picker everywhere in
+the console, which is a small UI detail that depends on `manage-crews` and the
+Inbox's data-fetching staying in sync. On the edge-function side I worked with
+Samuel on `transition-report`'s assign and reject paths, in particular making sure
+reject required a reason in every case rather than only some, since that was a rule
+easy to get right in the UI and wrong in the function if the two weren't built
+against the same checklist.
+
 ## Individual Understanding Statement: Alexander Adade
 
 *Draft: like Nana's, this is written from what FixMyCity's side of the integration
@@ -176,6 +210,18 @@ match-percentage figure our service produces, and they resolve or merge candidat
 without that ever changing a report's actual status. That queue is a thin proxy to
 our service's own review-queue API on FixMyCity's side, so the accuracy and
 usefulness of that percentage is really a reflection of how well our matching works.
+
+The matching itself is a perceptual hash (a difference hash over a resized,
+greyscale version of the image) rather than an exact pixel or file-hash comparison,
+because a citizen's photo and someone else's photo of the same pothole are never
+byte-identical: different framing, lighting, or compression will still hash close
+together under a perceptual hash even though the raw bytes differ completely.
+Comparing two hashes is then just a Hamming distance, and the "strong duplicate"
+threshold is a distance cutoff we tuned by hand against pairs of photos we knew were
+the same issue versus pairs we knew weren't, rather than a fixed textbook default.
+The service shares Nana's deployment (the same FastAPI app, the same development-time
+ngrok tunnel), so from FixMyCity's side classification and duplicate detection are
+really one HTTP call, not two separate services.
 
 ## Individual Understanding Statement: Hajara Yusif
 
@@ -202,3 +248,14 @@ means checking that this simplicity holds up: that assigning a report only offer
 crews that are actually marked available, that rejecting a report always requires a
 reason, and that every action a staff member takes shows up in that report's audit
 trail exactly once.
+
+The defect I can point to directly is D-3: the per-card "Resolve" dropdown on the
+last card in the Duplicate Reviews list rendered clipped off the bottom of the
+viewport instead of flipping upward, which only shows up once there are enough
+candidate pairs to fill the screen, not on a lightly-seeded test account. I checked
+it against every console role rather than only the Administrator account, since a
+permission bug that only shows up for a Dispatcher or Viewer is exactly the kind of
+thing that's easy to miss testing as an admin. I tracked what I found the same way
+as the rest of the team: a written description of the exact steps and screen it
+happened on, so the fix could be checked against the same steps rather than just
+eyeballed as "looks fine now."
